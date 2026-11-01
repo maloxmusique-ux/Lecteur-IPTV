@@ -93,6 +93,15 @@ class StreamFlowApp extends StatelessWidget {
         ...WidgetsApp.defaultShortcuts,
         const SingleActivator(LogicalKeyboardKey.select): const ActivateIntent(),
       },
+      // Echap = retour (ordinateur). Les dialogues et le lecteur gerent
+      // Echap eux-memes avant d'arriver ici.
+      builder: (context, child) => CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.escape): () =>
+              navigatorKey.currentState?.maybePop(),
+        },
+        child: child!,
+      ),
       // La cle force la reconstruction complete quand la langue change.
       home: KeyedSubtree(
         key: ValueKey(lang),

@@ -97,9 +97,38 @@ jobs:
           name: StreamFlow-windows
           path: StreamFlow-windows.zip
 
+  apple:
+    name: Mac et iPhone
+    needs: test
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Compiler pour Mac
+        run: flutter build macos --release --build-number=${{ github.run_number }}
+      - name: Creer le zip Mac
+        run: |
+          cd build/macos/Build/Products/Release
+          ditto -c -k --sequesterRsrc --keepParent streamflow.app "$GITHUB_WORKSPACE/StreamFlow-macos.zip"
+      # Verification que l'app iPhone compile (sans signature : l'installation
+      # se fait depuis Xcode sur le Mac avec le compte developpeur Apple).
+      - name: Verifier la compilation iPhone
+        run: flutter build ios --release --no-codesign --build-number=${{ github.run_number }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: StreamFlow-macos
+          path: StreamFlow-macos.zip
+
   publier:
     name: Publier la derniere version
-    needs: [android, windows]
+    needs: [android, windows, apple]
+    # Windows et Android sont publies meme si la compilation Apple echoue.
+    if: always() && needs.android.result == 'success' && needs.windows.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -112,11 +141,12 @@ jobs:
         run: |
           gh release delete derniere-version --yes --cleanup-tag || true
           gh release create derniere-version \
-            StreamFlow-android.apk StreamFlow-windows.zip \
+            $(ls StreamFlow-*) \
             --target "${{ github.sha }}" \
             --title "Dernière version (compilation n° ${{ github.run_number }})" \
             --notes "Compilée automatiquement depuis le commit ${{ github.sha }}.
 
           - **Android / Android TV** : télécharge \`StreamFlow-android.apk\` et ouvre-le pour l'installer.
-          - **Windows** : télécharge \`StreamFlow-windows.zip\`, décompresse-le, puis lance \`streamflow.exe\`." \
+          - **Windows** : télécharge \`StreamFlow-windows.zip\`, décompresse-le, puis lance \`streamflow.exe\`.
+          - **Mac** : télécharge \`StreamFlow-macos.zip\`, décompresse-le, puis clic droit sur StreamFlow et Ouvrir." \
             --prerelease

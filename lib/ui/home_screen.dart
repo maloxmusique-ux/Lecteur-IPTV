@@ -125,8 +125,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       onDestinationSelected: (i) => setState(() => _tab = tabs[i]),
                       leading: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Icon(Icons.play_circle_fill_rounded,
-                            size: 34, color: Theme.of(context).colorScheme.primary),
+                        child: Image.asset('assets/icon/icon.png',
+                            width: 40, height: 40, cacheWidth: 120),
                       ),
                       trailing: Padding(
                         padding: const EdgeInsets.only(top: 8),

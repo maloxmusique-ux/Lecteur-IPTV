@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -173,8 +174,53 @@ class RecordingService extends ChangeNotifier {
     }
   }
 
-  void _save() => _prefs.setString(
-      'recordings', jsonEncode([for (final r in items) r.toJson()]));
+  void _save() {
+    _prefs.setString(
+        'recordings', jsonEncode([for (final r in items) r.toJson()]));
+    _syncBackground();
+  }
+
+  static const _bg = MethodChannel('streamflow/background');
+  String? _bgState;
+
+  /// Android : garde l'app en vie (service au premier plan) tant qu'un
+  /// enregistrement est en cours ou prevu.
+  Future<void> _syncBackground() async {
+    if (!Platform.isAndroid) return;
+    final active = items.where((r) => r.active).toList();
+    final planned = items
+        .where((r) => r.status == RecStatus.scheduled)
+        .toList()
+      ..sort((a, b) => a.start.compareTo(b.start));
+    String? state;
+    Map<String, Object>? args;
+    if (active.isNotEmpty) {
+      state = 'rec:${active.map((r) => r.id).join(',')}';
+      args = {
+        'title': tr('rec.bgRecording', [active.length]),
+        'text': active.map((r) => r.title).join(', '),
+        'active': true,
+      };
+    } else if (planned.isNotEmpty) {
+      final n = planned.first;
+      state = 'plan:${n.id}';
+      args = {
+        'title': tr('rec.bgPlanned'),
+        'text': '${n.title} · ${dayTime(n.start)}',
+        'active': false,
+      };
+    }
+    if (state == _bgState) return;
+    _bgState = state;
+    try {
+      if (args == null) {
+        await _bg.invokeMethod('stop');
+      } else {
+        await Notifier.requestPermission();
+        await _bg.invokeMethod('start', args);
+      }
+    } catch (_) {}
+  }
 
   /// Dossier ou sont ranges les enregistrements.
   Future<Directory> folder() async {

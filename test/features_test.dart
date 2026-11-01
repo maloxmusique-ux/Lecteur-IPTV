@@ -5,6 +5,7 @@ import 'package:streamflow/l10n/i18n.dart';
 import 'package:streamflow/l10n/strings.dart';
 import 'package:streamflow/models/models.dart';
 import 'package:streamflow/models/profile.dart';
+import 'package:streamflow/services/cast.dart';
 import 'package:streamflow/services/epg_parser.dart';
 import 'package:streamflow/services/xtream_api.dart';
 import 'package:streamflow/state/app_state.dart';
@@ -123,6 +124,47 @@ void main() {
       for (final g in ['Sports', 'Enfants', 'Films 2018', 'News 24']) {
         expect(kAdultPattern.hasMatch(g), isFalse, reason: g);
       }
+    });
+  });
+
+  group('Chromecast et fiches', () {
+    test('message Cast v2 aller-retour', () {
+      const payload = '{"type":"PING","texte":"éàü"}';
+      final bytes = encodeCastMessage(
+          'sender-0', 'receiver-0', 'urn:x-cast:com.google.cast.tp.heartbeat', payload);
+      final back = decodeCastMessage(bytes)!;
+      expect(back.$1, 'urn:x-cast:com.google.cast.tp.heartbeat');
+      expect(back.$2, payload);
+    });
+
+    test('flux Xtream converti en HLS pour Chromecast', () {
+      final live = Channel(id: 'live_1', name: 'A', url: 'http://s/live/u/p/1.ts');
+      final (url, type, isLive) = castMediaFor(live);
+      expect(url, 'http://s/live/u/p/1.m3u8');
+      expect(type, 'application/x-mpegURL');
+      expect(isLive, isTrue);
+      final movie = Channel(
+          id: 'vod_2', name: 'B', url: 'http://s/movie/u/p/2.mp4',
+          type: ContentType.movie);
+      expect(castMediaFor(movie).$2, 'video/mp4');
+    });
+
+    test('fiche Xtream', () {
+      final m = MediaInfo.fromXtream({
+        'movie_image': 'http://img/p.jpg',
+        'backdrop_path': ['http://img/b.jpg'],
+        'plot': 'Un film.',
+        'releasedate': '2024-05-01',
+        'rating': '7.4',
+        'duration_secs': 5400,
+        'youtube_trailer': 'abc123',
+        'genre': 'Action',
+      });
+      expect(m.year, '2024');
+      expect(m.rating, 7.4);
+      expect(m.duration, const Duration(minutes: 90));
+      expect(m.trailer, 'https://www.youtube.com/watch?v=abc123');
+      expect(m.backdrop, 'http://img/b.jpg');
     });
   });
 }

@@ -68,6 +68,15 @@ Choix faits ensemble :
 - **Sauvegarde / restauration** de toutes les données (fichier JSON).
 - **Langue de l'interface** : Automatique, Français, English, Español, Português (choix aussi sur le tout premier écran).
 
+### Ajouté le 1er novembre 2026 (version 3)
+- **Icône et bannière Android TV** StreamFlow (dossier `assets/icon/`, générées avec `dart run flutter_launcher_icons`). Logo aussi dans la barre de gauche.
+- **Clé de signature Android** créée (`streamflow-release.jks`, alias `streamflow`). Léandre la garde dans `Bureau\IPTV\Cle-Android` avec le fichier `CLE-ANDROID-A-GARDER.txt` qui explique comment ajouter les 3 secrets GitHub. Elle n'est PAS dans le dépôt. Tant que les secrets ne sont pas ajoutés, l'APK reste signé avec une clé temporaire.
+- **Fiches films et séries** (Xtream `get_vod_info` / `get_series_info`, sans clé) : affiche, image de fond, année, durée, genre, note sur 10, résumé, réalisation, distribution, bande-annonce YouTube, bouton « Reprendre à », téléchargement. Série : bouton qui lance le prochain épisode, résumés et durées des épisodes, épisodes vus cochés.
+- **Enregistrement en arrière-plan sur Android** : service au premier plan (`RecordingService.kt`) avec notification, verrous processeur et Wi-Fi, tant qu'un enregistrement est en cours ou prévu. Ne pas fermer l'app depuis les apps récentes.
+- **Chromecast** (`lib/services/cast.dart`) : protocole Cast v2 écrit à la main (aucun SDK), recherche mDNS `_googlecast._tcp` (verrou multicast sur Android) ou adresse IP manuelle, lecteur multimédia par défaut de Google. Les flux Xtream `.ts` sont envoyés en `.m3u8`. Le zapping suit sur la télé. Certains flux (http HLS) peuvent être refusés par le Chromecast : message clair dans ce cas. Pas encore testé sur un vrai Chromecast.
+- **Mac et iPhone** : réglages iOS (réseau local, Bonjour, Fichiers, langues), droits macOS (réseau, dossiers). La compilation GitHub produit maintenant `StreamFlow-macos.zip` et vérifie que l'app iPhone compile. Guide pas à pas : `INSTALLER-IPHONE.md` (Xcode sur le Mac). La publication Windows/Android n'est jamais bloquée par un échec Apple.
+- Échap = retour en arrière sur ordinateur.
+
 ### Cadre légal
 - Écran d'acceptation obligatoire au premier lancement, case de certification à chaque ajout de source, page « Mentions légales ». Aucune playlist intégrée.
 
@@ -111,6 +120,9 @@ lib/
   ui/legal_screen.dart         Écran d'acceptation et mentions légales
   ui/navigation.dart           Ouverture des contenus, reprise
   ui/reminder_alert.dart       Alerte de rappel
+  ui/details_screen.dart       Fiche film (et en-tête commun des fiches)
+  ui/cast_ui.dart              Choix du Chromecast et bandeau de diffusion
+  services/cast.dart           Protocole Chromecast
   ui/widgets/                  Tuile de chaîne, affiche, logo, code parental
 test/parsers_test.dart         Tests des parseurs
 test/features_test.dart        Tests des nouvelles fonctions et des traductions
@@ -124,15 +136,15 @@ Ajouter une langue : ajouter une colonne dans `l10n/strings.dart` et la langue d
 - Compilation automatique (`.github/workflows/build.yml`) : APK Android et version Windows à chaque envoi sur `main`, publiés dans la release « Dernière version ».
   - Windows : https://github.com/maloxmusique-ux/Lecteur-IPTV/releases/download/derniere-version/StreamFlow-windows.zip
   - Android : https://github.com/maloxmusique-ux/Lecteur-IPTV/releases/download/derniere-version/StreamFlow-android.apk
+  - Mac : https://github.com/maloxmusique-ux/Lecteur-IPTV/releases/download/derniere-version/StreamFlow-macos.zip
 - Signature Android : sans secrets, l'APK est signé avec une clé temporaire (désinstaller avant chaque mise à jour). Pour une clé fixe, ajouter dans GitHub (Settings, Secrets and variables, Actions) : `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`.
 
 ## 6. Reste à faire (prochaines étapes proposées)
 
-1. Léandre teste la version 2 sur Windows avec son compte Xtream (rattrapage, enregistrement, pause du direct) et signale les problèmes.
-2. Tester sur un vrai téléphone Android et une box Android TV.
-3. Enregistrement en arrière-plan sur Android (service au premier plan) pour enregistrer app fermée.
-4. Une vraie icône et un nom d'app définitifs.
-5. Idées : affiches et résumés des films (TMDB), synchronisation entre appareils, Chromecast/AirPlay, version iPhone depuis le Mac.
+1. Léandre ajoute les 3 secrets GitHub de la clé Android (voir `CLE-ANDROID-A-GARDER.txt`).
+2. Tester sur un vrai téléphone Android, une box Android TV et un vrai Chromecast.
+3. Installer sur l'iPhone depuis le Mac (`INSTALLER-IPHONE.md`), puis éventuellement TestFlight.
+4. Idées : AirPlay sur iPhone, synchronisation entre appareils, publication sur Google Play.
 
 ## 7. Pour compiler toi-même
 

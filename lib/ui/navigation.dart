@@ -5,6 +5,7 @@ import '../l10n/i18n.dart';
 import '../models/models.dart';
 import '../player/player_engine.dart';
 import '../state/app_state.dart';
+import 'details_screen.dart';
 import 'player_screen.dart';
 import 'series_screen.dart';
 import 'widgets/pin_dialog.dart';
@@ -32,6 +33,15 @@ Future<void> openItem(
     return;
   }
 
+  // Films Xtream : fiche detaillee (affiche, resume, reprise).
+  if (c.type == ContentType.movie &&
+      c.id.startsWith('vod_') &&
+      app.active?.kind == SourceKind.xtream) {
+    Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => MovieScreen(movie: c, queue: queue)));
+    return;
+  }
+
   if (c.type == ContentType.live && wide) {
     // Desktop/TV : 1er clic = apercu, 2e clic = plein ecran (sans recharger).
     if (engine.current?.id == c.id) {
@@ -48,10 +58,9 @@ Future<void> openItem(
 
 /// Lance la lecture en plein ecran, avec proposition de reprise des films.
 Future<void> playFullscreen(BuildContext context, Channel c,
-    List<Channel> queue, {bool askResume = true}) async {
+    List<Channel> queue, {bool askResume = true, Duration? startAt}) async {
   final engine = context.read<PlayerEngine>();
   final app = context.read<AppState>();
-  Duration? startAt;
   if (askResume && c.type != ContentType.live) {
     final p = app.progressOf(c);
     if (p != null && p.resumable) {

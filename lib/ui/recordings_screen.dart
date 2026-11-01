@@ -75,7 +75,8 @@ class RecordingsView extends StatelessWidget {
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: Text(tr('rec.keepOpen'),
+                  child: Text(
+                      tr(Platform.isAndroid ? 'rec.keepOpenAndroid' : 'rec.keepOpen'),
                       style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant)),
                 ),

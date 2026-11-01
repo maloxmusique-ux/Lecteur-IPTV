@@ -182,10 +182,44 @@ class XtreamApi {
     }
   }
 
+  /// Fiche d'un film (affiche, resume, acteurs, note...).
+  Future<MediaInfo> vodInfo(Channel movie) async {
+    final data =
+        await _get(_api('get_vod_info', '&vod_id=${movie.streamId}'));
+    final info = data is Map && data['info'] is Map ? data['info'] as Map : {};
+    return MediaInfo.fromXtream(info, fallbackPoster: movie.logo);
+  }
+
+  /// Fiche d'une serie et resumes des episodes.
+  Future<SeriesDetails> seriesDetails(Channel series) async {
+    final data = await _get(
+        _api('get_series_info', '&series_id=${series.seriesId}'));
+    final info = data is Map && data['info'] is Map ? data['info'] as Map : {};
+    final episodes = <String, MediaInfo>{};
+    final eps = data is Map ? data['episodes'] : null;
+    final lists = eps is Map ? eps.values : (eps is List ? eps : const []);
+    for (final l in lists) {
+      for (final e in _list(l)) {
+        if (e['info'] is Map) {
+          episodes['ep_${e['id']}'] = MediaInfo.fromXtream(e['info'] as Map);
+        }
+      }
+    }
+    return SeriesDetails(
+      info: MediaInfo.fromXtream(info, fallbackPoster: series.logo),
+      seasons: _seasons(data, series),
+      episodes: episodes,
+    );
+  }
+
   /// Episodes d'une serie, groupes par saison.
   Future<Map<String, List<Channel>>> seriesEpisodes(Channel series) async {
     final data = await _get(
         _api('get_series_info', '&series_id=${series.seriesId}'));
+    return _seasons(data, series);
+  }
+
+  Map<String, List<Channel>> _seasons(dynamic data, Channel series) {
     final out = <String, List<Channel>>{};
     final eps = data is Map ? data['episodes'] : null;
     if (eps is Map) {
@@ -268,5 +302,81 @@ class CatchupItem {
     required this.programme,
     required this.serverStart,
     required this.hasArchive,
+  });
+}
+
+/// Informations d'un film, d'une serie ou d'un episode.
+class MediaInfo {
+  final String poster;
+  final String backdrop;
+  final String plot;
+  final String cast;
+  final String director;
+  final String genre;
+  final String year;
+  final double rating;
+  final Duration? duration;
+  final String trailer;
+
+  const MediaInfo({
+    this.poster = '',
+    this.backdrop = '',
+    this.plot = '',
+    this.cast = '',
+    this.director = '',
+    this.genre = '',
+    this.year = '',
+    this.rating = 0,
+    this.duration,
+    this.trailer = '',
+  });
+
+  static const empty = MediaInfo();
+
+  factory MediaInfo.fromXtream(Map i, {String fallbackPoster = ''}) {
+    String s(String k) {
+      final v = i[k];
+      if (v == null) return '';
+      final t = '$v'.trim();
+      return t == 'null' ? '' : t;
+    }
+
+    var backdrop = '';
+    final b = i['backdrop_path'];
+    if (b is List && b.isNotEmpty) backdrop = '${b.first}';
+    if (b is String) backdrop = b;
+    final date = s('releasedate').isNotEmpty
+        ? s('releasedate')
+        : (s('releaseDate').isNotEmpty ? s('releaseDate') : s('release_date'));
+    final secs = int.tryParse(s('duration_secs'));
+    var trailer = s('youtube_trailer');
+    if (trailer.isNotEmpty && !trailer.startsWith('http')) {
+      trailer = 'https://www.youtube.com/watch?v=$trailer';
+    }
+    final poster = [s('movie_image'), s('cover_big'), s('cover'), fallbackPoster]
+        .firstWhere((e) => e.isNotEmpty, orElse: () => '');
+    return MediaInfo(
+      poster: poster,
+      backdrop: backdrop,
+      plot: s('plot').isNotEmpty ? s('plot') : s('description'),
+      cast: s('cast').isNotEmpty ? s('cast') : s('actors'),
+      director: s('director'),
+      genre: s('genre'),
+      year: date.length >= 4 ? date.substring(0, 4) : '',
+      rating: double.tryParse(s('rating').replaceAll(',', '.')) ?? 0,
+      duration: secs != null && secs > 0 ? Duration(seconds: secs) : null,
+      trailer: trailer,
+    );
+  }
+}
+
+class SeriesDetails {
+  final MediaInfo info;
+  final Map<String, List<Channel>> seasons;
+  final Map<String, MediaInfo> episodes;
+  const SeriesDetails({
+    required this.info,
+    required this.seasons,
+    required this.episodes,
   });
 }

@@ -13,6 +13,8 @@ import '../player/player_engine.dart';
 import '../services/recorder.dart';
 import '../state/app_state.dart';
 import '../state/settings.dart';
+import '../services/cast.dart';
+import 'cast_ui.dart';
 import 'catchup_screen.dart';
 import 'programme_sheet.dart';
 import 'widgets/channel_logo.dart';
@@ -64,6 +66,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (id != _lastId) {
       _lastId = id;
       _showOverlay(); // Affiche le bandeau d'info a chaque zapping.
+      // Pendant une diffusion Chromecast, le zapping suit sur la tele.
+      final cast = CastSession.instance;
+      final c = engine.current;
+      if (cast.active && cast.device != null && c != null) {
+        engine.player.pause();
+        cast.play(cast.device!, c);
+      }
     }
     if (engine.current == null && mounted) {
       // Fin de la minuterie de mise en veille.
@@ -258,6 +267,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
                             fontWeight: FontWeight.w800,
                             color: Colors.white,
                             shadows: [Shadow(blurRadius: 12)])),
+                  ),
+                if (!tiny)
+                  const Align(
+                    alignment: Alignment.topCenter,
+                    child: SafeArea(child: Padding(
+                      padding: EdgeInsets.only(top: 48),
+                      child: CastBanner(),
+                    )),
                   ),
                 if (_info && !tiny)
                   Positioned(
@@ -544,6 +561,16 @@ class _Overlay extends StatelessWidget {
                     app.toggleFavorite(c);
                   },
                 ),
+                if (!Platform.isLinux)
+                  IconButton(
+                    tooltip: tr('cast.title'),
+                    icon: const Icon(Icons.cast_rounded),
+                    color: Colors.white,
+                    onPressed: () {
+                      onUserAction();
+                      showCastDialog(context);
+                    },
+                  ),
                 if (onPip != null)
                   IconButton(
                     tooltip: tr('player.pip'),
