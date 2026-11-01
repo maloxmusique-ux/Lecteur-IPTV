@@ -10,6 +10,7 @@ import 'l10n/i18n.dart';
 import 'player/player_engine.dart';
 import 'services/license.dart';
 import 'services/migrate.dart';
+import 'services/proxy.dart';
 import 'services/vault.dart';
 import 'services/recorder.dart';
 import 'services/reminders.dart';
@@ -28,6 +29,8 @@ Future<void> main() async {
   MediaKit.ensureInitialized();
   await migrateFromStreamFlow();
   await Vault.init();
+  // VPN de l'utilisateur (si configure) avant toute connexion.
+  await ProxyBridge.init();
 
   // Cache d'images en memoire plus genereux (logos de chaines).
   PaintingBinding.instance.imageCache
@@ -44,6 +47,14 @@ Future<void> main() async {
   await recorder.init();
   final license = LicenseService();
   await license.init();
+  // Les series "chaque diffusion" suivent le guide de la source active.
+  var lastGuide = app.epg;
+  recorder.updateGuide(app.active?.id ?? '', app.epg);
+  app.addListener(() {
+    if (identical(app.epg, lastGuide)) return;
+    lastGuide = app.epg;
+    recorder.updateGuide(app.active?.id ?? '', app.epg);
+  });
   final engine = PlayerEngine(settings);
   engine.onProgress = app.saveProgress;
 

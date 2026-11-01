@@ -95,6 +95,9 @@ Modèle choisi par Léandre : **app gratuite à télécharger, accès payant par
 - **Portail de Léandre** : `portail/index.html` (un seul fichier, à ouvrir dans le navigateur). Créer des codes (durée, nombre, personnes par code, note), activer une adresse MAC directement, retirer un accès offert, désactiver un code, voir les appareils et les revenus. Protégé par le secret Supabase `ADMIN_PASSWORD` (fonction `admin`). Mode démo sans serveur. Aucun compte client à gérer.
 - **VPN** : écarté (coûteux, responsabilité légale, et les fournisseurs IPTV bloquent souvent les VPN). À la place :
 - **Identifiants chiffrés** : les sources (URL, utilisateurs, mots de passe) sont chiffrées en AES-256-GCM (`services/vault.dart`), clé dans le trousseau du système (`flutter_secure_storage`). Les anciennes sources en clair sont chiffrées au démarrage. La sauvegarde exporte les sources en clair pour pouvoir les restaurer ailleurs.
+- **Enregistrements récurrents** : en appuyant sur « Enregistrer », choix « Une seule fois », « Chaque fois qu'elle passe » (même titre sur la même chaîne, trouvé dans le guide, 8 jours à l'avance) ou « Chaque semaine » (même jour, même heure ; heures exactes reprises du guide si dispo). Section « Séries d'enregistrement » dans l'onglet Enregistrements avec « Arrêter la série ». Une diffusion annulée à la main ne revient pas. Code : `RecRule` dans `services/recorder.dart`.
+- **Connexion protégée (VPN) au choix** : Réglages > Connexion protégée. L'utilisateur entre les infos de SON fournisseur VPN (SOCKS5 ou HTTP : serveur, port, utilisateur, mot de passe chiffré). Un relais local (`services/proxy.dart`) fait passer catalogue, guide, lecture (option `http-proxy` de libmpv) et enregistrements par le VPN ; si le VPN tombe, ça échoue au lieu de fuir. Bouton « Tester » (IP vue avec et sans VPN). Le réseau local (Chromecast) reste direct. Canalix ne fournit aucun VPN.
+- **Recherche Chromecast renforcée** (`scanForCast`) : mDNS + SSDP/DIAL + balayage du réseau local (port 8009 en TLS), car le pare-feu Windows bloque souvent le mDNS. Si une télé sans Chromecast (Samsung, LG…) est vue, un message l'explique.
 - **Politique de confidentialité** : `CONFIDENTIALITE.md` (Loi 25 / LPRPDE), résumé dans l'aide de l'app (2 nouvelles questions : code cadeau, données).
 
 ### Cadre légal
@@ -140,6 +143,8 @@ lib/
   ui/legal_screen.dart         Écran d'acceptation et mentions légales
   ui/navigation.dart           Ouverture des contenus, reprise
   ui/reminder_alert.dart       Alerte de rappel
+  services/proxy.dart          Relais vers le VPN de l'utilisateur (SOCKS5 / HTTP)
+  ui/vpn_screen.dart           Réglage « Connexion protégée (VPN) »
   services/vault.dart          Chiffrement des identifiants (AES-256-GCM, clé dans le trousseau)
   services/migrate.dart        Reprise des données de l'ancienne app StreamFlow
   config/brand.dart            Nom, contacts, serveur de licences, forfaits et prix

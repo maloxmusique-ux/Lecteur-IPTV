@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:streamflow/services/recorder.dart';
 import 'package:streamflow/services/vault.dart';
 import 'package:streamflow/l10n/i18n.dart';
 import 'package:streamflow/l10n/strings.dart';
@@ -227,5 +228,27 @@ void main() {
     expect(Vault.decrypt(plain), plain); // ancien format en clair
     Vault.useKey(Uint8List.fromList(List.filled(32, 8)));
     expect(() => Vault.decrypt(enc), throwsA(anything));
+  });
+
+  test('Series : titres, diffusions hebdomadaires', () {
+    final ch = Channel(id: 'c1', name: 'Canal', url: 'http://x/1.ts');
+    final weekly = RecRule(
+        id: 'r', sourceId: 's', channel: ch, title: 'Le Journal',
+        mode: RecRepeat.weekly, weekday: DateTime.friday,
+        minuteOfDay: 20 * 60, durationMin: 60);
+    // Mercredi 4 novembre 2026, 10 h : prochain vendredi le 6 a 20 h.
+    final occ = weekly.weeklyOccurrences(DateTime(2026, 11, 4, 10));
+    expect(occ.length, 1); // 6 novembre (le 13 est hors de la fenetre de 8 jours)
+    final first = DateTime.fromMillisecondsSinceEpoch(occ.first.$1);
+    expect([first.day, first.hour, first.minute], [6, 20, 0]);
+    expect(occ.first.$2 - occ.first.$1, 3600000);
+    // Vendredi 21 h : celle de ce soir est encore en cours.
+    final live = weekly.weeklyOccurrences(DateTime(2026, 11, 6, 20, 30));
+    expect(DateTime.fromMillisecondsSinceEpoch(live.first.$1).day, 6);
+    // Titres : casse, accents gardes, mentions entre parentheses ignorees.
+    expect(weekly.matches(const Programme(0, 1, 'LE JOURNAL (R)', '')), isTrue);
+    expect(weekly.matches(const Programme(0, 1, 'Le Journal du sport', '')), isFalse);
+    final back = RecRule.fromJson(weekly.toJson());
+    expect([back.weekday, back.minuteOfDay, back.mode], [5, 1200, RecRepeat.weekly]);
   });
 }

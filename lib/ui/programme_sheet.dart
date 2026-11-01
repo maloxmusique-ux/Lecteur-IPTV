@@ -101,7 +101,7 @@ class _ProgrammeSheet extends StatelessWidget {
       await playFullscreen(host, cu, [cu]);
     }
 
-    void toggleRecord() {
+    Future<void> toggleRecord() async {
       if (source == null) return;
       if (scheduled) {
         for (final r in recorder.items) {
@@ -115,8 +115,15 @@ class _ProgrammeSheet extends StatelessWidget {
         }
         toast(host, tr('rec.cancelled'));
       } else {
-        recorder.scheduleProgramme(source, c, p);
-        toast(host, live ? tr('rec.started') : tr('rec.scheduled'));
+        final mode = await askRepeat(context, c, p);
+        if (mode == null || !host.mounted) return;
+        if (mode == RecRepeat.once) {
+          recorder.scheduleProgramme(source, c, p);
+          toast(host, live ? tr('rec.started') : tr('rec.scheduled'));
+        } else {
+          recorder.addRule(source, c, p, mode);
+          toast(host, tr('rec.seriesAdded'));
+        }
       }
     }
 
@@ -314,4 +321,48 @@ Future<void> recordNowDialog(BuildContext context, Channel c) async {
   final ch = choices[pick];
   recorder.recordNow(source, c, ch.$2, title: ch.$3);
   if (context.mounted) toast(context, tr('rec.started'));
+}
+
+/// Demande la frequence : une fois, chaque diffusion ou chaque semaine.
+Future<RecRepeat?> askRepeat(BuildContext context, Channel c, Programme p) {
+  final d = DateTime.fromMillisecondsSinceEpoch(p.start);
+  final title = p.title.isEmpty ? c.name : p.title;
+  Widget option(BuildContext ctx, RecRepeat m, IconData icon, String t, String sub,
+          {bool autofocus = false}) =>
+      ListTile(
+        autofocus: autofocus,
+        leading: Icon(icon, color: m == RecRepeat.once ? null : Colors.redAccent),
+        title: Text(t),
+        subtitle: Text(sub),
+        onTap: () => Navigator.pop(ctx, m),
+      );
+  return showDialog<RecRepeat>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      icon: const Icon(Icons.fiber_manual_record, color: Colors.redAccent),
+      title: Text(tr('rec.repeatQ')),
+      contentPadding: const EdgeInsets.fromLTRB(8, 16, 8, 0),
+      content: SizedBox(
+        width: 460,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            option(ctx, RecRepeat.once, Icons.looks_one_outlined,
+                tr('rec.once'), tr('rec.onceSub', [dayTime(p.start)]),
+                autofocus: true),
+            option(ctx, RecRepeat.everyAiring, Icons.repeat_rounded,
+                tr('rec.every'), tr('rec.everySub', [title, c.name])),
+            option(ctx, RecRepeat.weekly, Icons.event_repeat_rounded,
+                tr('rec.weekly'),
+                tr('rec.weeklySub', [weekdayLong(d.weekday), hm(p.start), c.name])),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(tr('common.cancel'))),
+      ],
+    ),
+  );
 }

@@ -8,6 +8,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../models/models.dart';
+import '../services/proxy.dart';
 import '../services/net.dart';
 import '../state/settings.dart';
 
@@ -189,6 +190,8 @@ class PlayerEngine extends ChangeNotifier {
       'framedrop': 'vo',
       'deinterlace': 'auto',
       'keep-open': 'no',
+      // VPN de l'utilisateur (relais local), vide = connexion directe.
+      'http-proxy': ProxyBridge.mpvProxy,
       // Langues preferees.
       'alang': s.audioLangs,
       'slang': s.subLangs,

@@ -29,6 +29,10 @@ String tr(String key, [List<Object?> args = const []]) {
 String weekdayShort(int weekday) =>
     tr('day.short').split(',')[(weekday - 1).clamp(0, 6)];
 
+/// Nom de jour complet localise (lundi = 1).
+String weekdayLong(int weekday) =>
+    tr('day.long').split(',')[(weekday - 1).clamp(0, 6)];
+
 /// Nom de mois court localise (janvier = 1).
 String monthShort(int month) =>
     tr('month.short').split(',')[(month - 1).clamp(0, 11)];

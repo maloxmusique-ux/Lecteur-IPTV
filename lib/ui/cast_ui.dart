@@ -28,6 +28,7 @@ class _CastPicker extends StatefulWidget {
 
 class _CastPickerState extends State<_CastPicker> {
   List<CastDevice>? _devices;
+  List<String> _otherTvs = const [];
   final _ip = TextEditingController();
 
   @override
@@ -38,8 +39,13 @@ class _CastPickerState extends State<_CastPicker> {
 
   Future<void> _search() async {
     setState(() => _devices = null);
-    final list = await discoverCastDevices();
-    if (mounted) setState(() => _devices = list);
+    final scan = await scanForCast();
+    if (mounted) {
+      setState(() {
+        _devices = scan.devices;
+        _otherTvs = scan.otherTvs;
+      });
+    }
   }
 
   @override
@@ -74,11 +80,23 @@ class _CastPickerState extends State<_CastPicker> {
                   ],
                 ),
               )
-            else if (devices.isEmpty)
+            else if (devices.isEmpty) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Text(tr('cast.none')),
-              )
+              ),
+              if (_otherTvs.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.amber.withValues(alpha: 0.5)),
+                  ),
+                  child: Text(tr('cast.otherTvs', [_otherTvs.take(3).join(', ')])),
+                ),
+            ]
             else
               for (final d in devices)
                 ListTile(

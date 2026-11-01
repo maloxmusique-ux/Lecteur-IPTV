@@ -23,6 +23,178 @@ class CastDevice {
   int get hashCode => Object.hash(host, port);
 }
 
+/// Resultat d'une recherche : appareils Cast, et autres televiseurs vus
+/// sur le reseau qui n'ont pas Chromecast (ex. Samsung, LG).
+class CastScan {
+  final List<CastDevice> devices;
+  final List<String> otherTvs;
+  const CastScan(this.devices, this.otherTvs);
+}
+
+/// Recherche complete, avec trois methodes en parallele car le multicast
+/// est souvent bloque (pare-feu Windows, routeurs, adaptateurs virtuels) :
+/// 1. mDNS "_googlecast._tcp" (methode officielle) ;
+/// 2. SSDP/DIAL (repond aussi pour les televiseurs sans Chromecast) ;
+/// 3. balayage du reseau local : port 8009 (protocole Cast, en TLS).
+Future<CastScan> scanForCast(
+    {@visibleForTesting List<InternetAddress>? interfaces}) async {
+  final ifaces = interfaces ?? await _localIPv4();
+  final results = await Future.wait([
+    discoverCastDevices().catchError((_) => <CastDevice>[]),
+    _ssdp(ifaces).catchError((_) => <String, (String, String)>{}),
+    _sweep(ifaces).catchError((_) => <String>[]),
+  ]);
+  final mdns = results[0] as List<CastDevice>;
+  final ssdp = results[1] as Map<String, (String, String)>;
+  final open8009 = results[2] as List<String>;
+
+  final byHost = <String, CastDevice>{for (final d in mdns) d.host: d};
+  for (final ip in {...open8009, ...ssdp.keys}) {
+    if (byHost.containsKey(ip)) continue;
+    if (!open8009.contains(ip) && !await _isCast(ip)) continue;
+    final name = await _eurekaName(ip) ?? ssdp[ip]?.$1 ?? 'Chromecast ($ip)';
+    byHost[ip] = CastDevice(name, ip, 8009);
+  }
+  final others = <String>[
+    for (final e in ssdp.entries)
+      if (!byHost.containsKey(e.key) && e.value.$2.isNotEmpty)
+        '${e.value.$1} (${e.value.$2})',
+  ];
+  return CastScan(
+      byHost.values.toList()..sort((a, b) => a.name.compareTo(b.name)),
+      others.toSet().toList()..sort());
+}
+
+/// Adresses IPv4 privees de l'appareil (Wi-Fi, Ethernet).
+Future<List<InternetAddress>> _localIPv4() async {
+  final out = <InternetAddress>[];
+  try {
+    for (final i in await NetworkInterface.list(type: InternetAddressType.IPv4)) {
+      final n = i.name.toLowerCase();
+      if (n.contains('vethernet') || n.contains('virtualbox') ||
+          n.contains('vmware') || n.contains('wsl') || n.startsWith('docker') ||
+          n.startsWith('br-') || n.contains('loopback')) {
+        continue;
+      }
+      for (final a in i.addresses) {
+        final b = a.rawAddress;
+        final private = b[0] == 10 ||
+            (b[0] == 192 && b[1] == 168) ||
+            (b[0] == 172 && b[1] >= 16 && b[1] <= 31);
+        if (private) out.add(a);
+      }
+    }
+  } catch (_) {}
+  return out.take(4).toList();
+}
+
+/// SSDP : ip -> (nom, fabricant si c'est un televiseur sans Cast).
+Future<Map<String, (String, String)>> _ssdp(List<InternetAddress> ifaces) async {
+  final locations = <String, String>{};
+  final sockets = <RawDatagramSocket>[];
+  final group = InternetAddress('239.255.255.250');
+  for (final a in [...ifaces, InternetAddress.anyIPv4]) {
+    try {
+      final sock = await RawDatagramSocket.bind(a, 0);
+      sockets.add(sock);
+      sock.listen((e) {
+        if (e != RawSocketEvent.read) return;
+        final d = sock.receive();
+        if (d == null) return;
+        final text = latin1.decode(d.data, allowInvalid: true);
+        final m = RegExp(r'^location:\s*(\S+)', caseSensitive: false, multiLine: true)
+            .firstMatch(text);
+        if (m != null) locations[d.address.address] = m.group(1)!;
+      });
+      for (final st in const [
+        'urn:dial-multiscreen-org:service:dial:1',
+        'urn:schemas-upnp-org:device:MediaRenderer:1',
+      ]) {
+        final msg = 'M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\n'
+            'MAN: "ssdp:discover"\r\nMX: 2\r\nST: $st\r\n\r\n';
+        sock.send(utf8.encode(msg), group, 1900);
+      }
+    } catch (_) {}
+  }
+  await Future<void>.delayed(const Duration(milliseconds: 2500));
+  for (final s in sockets) {
+    s.close();
+  }
+  final out = <String, (String, String)>{};
+  await Future.wait(locations.entries.map((e) async {
+    try {
+      final c = HttpClient()..connectionTimeout = const Duration(seconds: 2);
+      final req = await c.getUrl(Uri.parse(e.value));
+      final res = await req.close().timeout(const Duration(seconds: 3));
+      final xml = await res.transform(utf8.decoder).join();
+      c.close(force: true);
+      String tag(String t) =>
+          RegExp('<$t>([^<]*)</$t>').firstMatch(xml)?.group(1)?.trim() ?? '';
+      final maker = tag('manufacturer');
+      final type = tag('deviceType').toLowerCase();
+      final tv = type.contains('mediarenderer') || type.contains('tv') ||
+          RegExp('samsung|lg |lg electronics|sony|roku|vizio|hisense|tcl|philips|panasonic',
+                  caseSensitive: false)
+              .hasMatch(maker);
+      out[e.key] = (tag('friendlyName'), tv ? maker : '');
+    } catch (_) {}
+  }));
+  return out;
+}
+
+/// Balaye le /24 de chaque interface a la recherche du port Cast (8009).
+Future<List<String>> _sweep(List<InternetAddress> ifaces) async {
+  final targets = <String>{};
+  for (final a in ifaces) {
+    final b = a.rawAddress;
+    for (var i = 1; i < 255; i++) {
+      if (i != b[3]) targets.add('${b[0]}.${b[1]}.${b[2]}.$i');
+    }
+  }
+  final open = <String>[];
+  final list = targets.toList();
+  const batch = 96;
+  for (var i = 0; i < list.length; i += batch) {
+    await Future.wait(list.skip(i).take(batch).map((ip) async {
+      try {
+        final s = await Socket.connect(ip, 8009,
+            timeout: const Duration(milliseconds: 600));
+        s.destroy();
+        if (await _isCast(ip)) open.add(ip);
+      } catch (_) {}
+    }));
+  }
+  return open;
+}
+
+/// Le port 8009 parle TLS sur un appareil Cast.
+Future<bool> _isCast(String ip) async {
+  try {
+    final s = await SecureSocket.connect(ip, 8009,
+        onBadCertificate: (_) => true, timeout: const Duration(seconds: 2));
+    s.destroy();
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+/// Nom donne a l'appareil dans Google Home.
+Future<String?> _eurekaName(String ip) async {
+  try {
+    final c = HttpClient()..connectionTimeout = const Duration(seconds: 2);
+    final req = await c.getUrl(
+        Uri.parse('http://$ip:8008/setup/eureka_info?params=name'));
+    final res = await req.close().timeout(const Duration(seconds: 2));
+    final body = await res.transform(utf8.decoder).join();
+    c.close(force: true);
+    final n = (jsonDecode(body) as Map)['name'];
+    return n is String && n.isNotEmpty ? n : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 /// Recherche des appareils Google Cast (mDNS "_googlecast._tcp").
 Future<List<CastDevice>> discoverCastDevices(
     {Duration timeout = const Duration(seconds: 4)}) async {

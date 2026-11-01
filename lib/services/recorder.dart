@@ -38,6 +38,12 @@ class Recording {
   int totalBytes;
   String error;
 
+  /// Serie d'enregistrement qui a cree cette entree ('' = aucune).
+  final String ruleId;
+
+  /// Debut de l'emission (sans les marges), pour eviter les doublons.
+  final int progStart;
+
   Recording({
     required this.id,
     required this.sourceId,
@@ -53,6 +59,8 @@ class Recording {
     this.bytes = 0,
     this.totalBytes = 0,
     this.error = '',
+    this.ruleId = '',
+    this.progStart = 0,
   });
 
   bool get active => status == RecStatus.recording;
@@ -95,6 +103,8 @@ class Recording {
         'bytes': bytes,
         'total': totalBytes,
         'err': error,
+        if (ruleId.isNotEmpty) 'rule': ruleId,
+        if (progStart != 0) 'ps': progStart,
       };
 
   factory Recording.fromJson(Map<String, dynamic> j) => Recording(
@@ -112,6 +122,105 @@ class Recording {
         bytes: (j['bytes'] as int?) ?? 0,
         totalBytes: (j['total'] as int?) ?? 0,
         error: (j['err'] as String?) ?? '',
+        ruleId: (j['rule'] as String?) ?? '',
+        progStart: (j['ps'] as int?) ?? 0,
+      );
+}
+
+/// Frequence d'un enregistrement.
+enum RecRepeat {
+  /// Une seule fois.
+  once,
+
+  /// Chaque diffusion de l'emission (meme titre, meme chaine, selon le guide).
+  everyAiring,
+
+  /// Chaque semaine, meme jour et meme heure.
+  weekly,
+}
+
+/// Serie d'enregistrements (emission recurrente).
+class RecRule {
+  final String id;
+  final String sourceId;
+  final Channel channel;
+  final String title;
+  final String userAgent;
+  final RecRepeat mode;
+
+  /// Pour [RecRepeat.weekly] : jour (lundi = 1), heure de debut en minutes
+  /// depuis minuit, et duree en minutes.
+  final int weekday;
+  final int minuteOfDay;
+  final int durationMin;
+
+  /// Diffusions annulees a la main (debut de l'emission en ms).
+  final Set<int> skip;
+  final int created;
+
+  RecRule({
+    required this.id,
+    required this.sourceId,
+    required this.channel,
+    required this.title,
+    required this.mode,
+    this.userAgent = '',
+    this.weekday = 1,
+    this.minuteOfDay = 0,
+    this.durationMin = 60,
+    Set<int>? skip,
+    int? created,
+  })  : skip = skip ?? <int>{},
+        created = created ?? DateTime.now().millisecondsSinceEpoch;
+
+  static String normalize(String t) => t
+      .toLowerCase()
+      .replaceAll(RegExp(r'\(.*?\)|\[.*?\]'), '')
+      .replaceAll(RegExp(r'[^a-z0-9\u00C0-\u017F]'), '');
+
+  bool matches(Programme p) => normalize(p.title) == normalize(title);
+
+  /// Prochaines diffusions hebdomadaires (debut, fin) a partir de [now].
+  List<(int, int)> weeklyOccurrences(DateTime now, {int days = 8}) {
+    final out = <(int, int)>[];
+    for (var i = 0; i < days; i++) {
+      final d = DateTime(now.year, now.month, now.day + i);
+      if (d.weekday != weekday) continue;
+      final start = DateTime(d.year, d.month, d.day, minuteOfDay ~/ 60, minuteOfDay % 60);
+      final stop = start.add(Duration(minutes: durationMin));
+      if (stop.isAfter(now)) {
+        out.add((start.millisecondsSinceEpoch, stop.millisecondsSinceEpoch));
+      }
+    }
+    return out;
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'src': sourceId,
+        'ch': channel.toJson(),
+        'title': title,
+        'ua': userAgent,
+        'mode': mode.index,
+        'wd': weekday,
+        'min': minuteOfDay,
+        'dur': durationMin,
+        'skip': skip.toList(),
+        'created': created,
+      };
+
+  factory RecRule.fromJson(Map<String, dynamic> j) => RecRule(
+        id: j['id'] as String,
+        sourceId: j['src'] as String,
+        channel: Channel.fromJson(j['ch'] as Map<String, dynamic>),
+        title: j['title'] as String,
+        userAgent: (j['ua'] as String?) ?? '',
+        mode: RecRepeat.values[j['mode'] as int],
+        weekday: (j['wd'] as int?) ?? 1,
+        minuteOfDay: (j['min'] as int?) ?? 0,
+        durationMin: (j['dur'] as int?) ?? 60,
+        skip: {for (final e in (j['skip'] as List? ?? const [])) e as int},
+        created: j['created'] as int?,
       );
 }
 
@@ -132,7 +241,13 @@ class RecordingService extends ChangeNotifier {
 
   late SharedPreferences _prefs;
   List<Recording> items = [];
+  List<RecRule> rules = [];
   final _jobs = <String, _Job>{};
+
+  /// Dernier guide connu (pour les series "chaque diffusion").
+  String _guideSource = '';
+  EpgData _guide = EpgData.empty;
+  int _lastRules = 0;
   Timer? _timer;
   Timer? _uiTimer;
 
@@ -156,6 +271,15 @@ class RecordingService extends ChangeNotifier {
   }
 
   void _load() {
+    final rawRules = _prefs.getString('rec_rules');
+    if (rawRules != null) {
+      try {
+        rules = [
+          for (final e in jsonDecode(rawRules) as List)
+            RecRule.fromJson(e as Map<String, dynamic>),
+        ];
+      } catch (_) {}
+    }
     final raw = _prefs.getString('recordings');
     if (raw == null) return;
     try {
@@ -177,6 +301,8 @@ class RecordingService extends ChangeNotifier {
   void _save() {
     _prefs.setString(
         'recordings', jsonEncode([for (final r in items) r.toJson()]));
+    _prefs.setString(
+        'rec_rules', jsonEncode([for (final r in rules) r.toJson()]));
     _syncBackground();
   }
 
@@ -278,6 +404,144 @@ class RecordingService extends ChangeNotifier {
     ));
   }
 
+  // ------------------------------------------------ Series d'enregistrement
+
+  /// Cree une serie a partir d'une emission du guide et programme les
+  /// prochaines diffusions.
+  RecRule addRule(Source s, Channel c, Programme p, RecRepeat mode) {
+    final start = DateTime.fromMillisecondsSinceEpoch(p.start);
+    final rule = RecRule(
+      id: _newId(),
+      sourceId: s.id,
+      channel: c,
+      title: p.title.isEmpty ? c.name : p.title,
+      userAgent: s.userAgent,
+      mode: mode,
+      weekday: start.weekday,
+      minuteOfDay: start.hour * 60 + start.minute,
+      durationMin: p.duration.inMinutes.clamp(1, 24 * 60),
+    );
+    rules = [...rules, rule];
+    // L'emission choisie est toujours enregistree, meme si son titre
+    // dans le guide varie un peu.
+    _occurrence(rule, p.start, p.stop, rule.title);
+    applyRules();
+    return rule;
+  }
+
+  /// Arrete une serie et annule ses enregistrements prevus.
+  void removeRule(RecRule rule) {
+    rules = rules.where((r) => r.id != rule.id).toList();
+    for (final r in items) {
+      if (r.ruleId == rule.id && r.status == RecStatus.scheduled) {
+        r.status = RecStatus.cancelled;
+      }
+    }
+    _save();
+    notifyListeners();
+  }
+
+  RecRule? ruleById(String id) => rules.where((r) => r.id == id).firstOrNull;
+
+  /// Serie qui couvre cette emission, s'il y en a une.
+  RecRule? ruleFor(String sourceId, Channel c, Programme p) {
+    for (final r in rules) {
+      if (r.sourceId != sourceId || r.channel.id != c.id) continue;
+      if (r.mode == RecRepeat.everyAiring && r.matches(p)) return r;
+      if (r.mode == RecRepeat.weekly) {
+        final d = DateTime.fromMillisecondsSinceEpoch(p.start);
+        if (d.weekday == r.weekday &&
+            (d.hour * 60 + d.minute - r.minuteOfDay).abs() <= 5) {
+          return r;
+        }
+      }
+    }
+    return null;
+  }
+
+  /// Le guide de la source active vient d'etre charge.
+  void updateGuide(String sourceId, EpgData epg) {
+    _guideSource = sourceId;
+    _guide = epg;
+    applyRules();
+  }
+
+  /// Programme les prochaines diffusions de toutes les series.
+  void applyRules() {
+    _lastRules = DateTime.now().millisecondsSinceEpoch;
+    if (rules.isEmpty) return;
+    final now = DateTime.now();
+    final nowMs = now.millisecondsSinceEpoch;
+    final horizon = nowMs + const Duration(days: 8).inMilliseconds;
+    var changed = false;
+    for (final rule in rules) {
+      rule.skip.removeWhere((t) => t < nowMs - const Duration(days: 2).inMilliseconds);
+      if (rule.mode == RecRepeat.weekly) {
+        for (final (a, b) in rule.weeklyOccurrences(now)) {
+          // Si le guide connait l'emission a cette heure, on prend ses heures exactes.
+          final p = _guideMatch(rule, a);
+          changed |= _occurrence(rule, p?.start ?? a, p?.stop ?? b,
+              p?.title.isNotEmpty == true ? p!.title : rule.title, save: false);
+        }
+      } else if (rule.mode == RecRepeat.everyAiring &&
+          rule.sourceId == _guideSource) {
+        for (final p in _guide.forChannel(rule.channel) ?? const <Programme>[]) {
+          if (p.stop <= nowMs || p.start > horizon || !rule.matches(p)) continue;
+          changed |= _occurrence(rule, p.start, p.stop, p.title, save: false);
+        }
+      }
+    }
+    if (changed) {
+      _save();
+      notifyListeners();
+      _tick();
+    }
+  }
+
+  Programme? _guideMatch(RecRule rule, int startMs) {
+    if (rule.sourceId != _guideSource) return null;
+    for (final p in _guide.forChannel(rule.channel) ?? const <Programme>[]) {
+      if ((p.start - startMs).abs() <= 5 * 60000) return p;
+      if (p.start > startMs + 5 * 60000) break;
+    }
+    return null;
+  }
+
+  /// Ajoute une diffusion d'une serie si elle n'est pas deja prevue.
+  bool _occurrence(RecRule rule, int start, int stop, String title,
+      {bool save = true}) {
+    if (rule.skip.contains(start)) return false;
+    final exists = items.any((r) =>
+        r.kind == RecKind.live &&
+        r.channel.id == rule.channel.id &&
+        r.sourceId == rule.sourceId &&
+        ((r.ruleId == rule.id && r.progStart == start) ||
+            (!r.finished && r.start <= start && r.stop >= stop - 60000)));
+    if (exists) return false;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    var a = start - settings.recPadBefore * 60000;
+    if (a < now) a = now;
+    final r = Recording(
+      id: _newId(),
+      sourceId: rule.sourceId,
+      channel: rule.channel,
+      title: title,
+      kind: RecKind.live,
+      url: rule.channel.url,
+      userAgent: rule.userAgent,
+      start: a,
+      stop: stop + settings.recPadAfter * 60000,
+      ruleId: rule.id,
+      progStart: start,
+    );
+    items = [r, ...items];
+    if (save) {
+      _save();
+      notifyListeners();
+    }
+    return true;
+  }
+
   /// Enregistre tout de suite pendant [duration].
   Recording recordNow(Source s, Channel c, Duration duration, {String? title}) {
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -318,7 +582,9 @@ class RecordingService extends ChangeNotifier {
     return r;
   }
 
-  String _newId() => DateTime.now().microsecondsSinceEpoch.toRadixString(36);
+  int _idSeq = 0;
+  String _newId() =>
+      '${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}${(_idSeq++ % 1296).toRadixString(36)}';
 
   /// Arrete un enregistrement en cours ou annule un enregistrement prevu.
   void stopRecording(Recording r) {
@@ -331,6 +597,8 @@ class RecordingService extends ChangeNotifier {
       }
     } else if (r.status == RecStatus.scheduled) {
       r.status = RecStatus.cancelled;
+      // Une diffusion annulee a la main ne revient pas.
+      ruleById(r.ruleId)?.skip.add(r.progStart);
     }
     _save();
     notifyListeners();
@@ -352,6 +620,7 @@ class RecordingService extends ChangeNotifier {
 
   void _tick() {
     final now = DateTime.now().millisecondsSinceEpoch;
+    if (rules.isNotEmpty && now - _lastRules > 60000) applyRules();
     for (final r in items) {
       if (r.status != RecStatus.scheduled || _jobs.containsKey(r.id)) continue;
       if (r.kind == RecKind.file || (now >= r.start && now < r.stop)) {

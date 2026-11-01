@@ -17,6 +17,8 @@ import 'navigation.dart';
 import 'profiles_screen.dart';
 import 'subscription_screen.dart';
 import '../services/license.dart';
+import '../services/proxy.dart';
+import 'vpn_screen.dart';
 import 'widgets/pin_dialog.dart';
 
 /// Langues proposees pour l'audio et les sous-titres (code -> alias mpv).
@@ -174,6 +176,19 @@ class SettingsView extends StatelessWidget {
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () => Navigator.of(context)
                 .push(MaterialPageRoute(builder: (_) => const HelpScreen())),
+          ),
+          ListTile(
+            leading: Icon(ProxyBridge.active
+                ? Icons.verified_user_rounded
+                : Icons.shield_outlined,
+                color: ProxyBridge.active ? Colors.greenAccent : null),
+            title: Text(tr('vpn.title')),
+            subtitle: Text(ProxyBridge.active
+                ? tr('vpn.on', [ProxyBridge.config.host])
+                : tr('vpn.off')),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => Navigator.of(context)
+                .push(MaterialPageRoute(builder: (_) => const VpnScreen())),
           ),
 
           // ------------------------------------------------- Langue

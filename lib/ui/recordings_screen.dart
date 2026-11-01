@@ -55,7 +55,7 @@ class RecordingsView extends StatelessWidget {
           ),
         ],
       ),
-      body: rec.items.isEmpty
+      body: rec.items.isEmpty && rec.rules.isEmpty
           ? Center(
               child: Padding(
                 padding: const EdgeInsets.all(32),
@@ -80,6 +80,10 @@ class RecordingsView extends StatelessWidget {
                       style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant)),
                 ),
+                if (rec.rules.isNotEmpty) ...[
+                  title(tr('rec.series')),
+                  for (final r in rec.rules) _RuleTile(r),
+                ],
                 if (active.isNotEmpty) ...[
                   title(tr('rec.inProgress')),
                   for (final r in active) _RecTile(r),
@@ -129,7 +133,14 @@ class _RecTile extends StatelessWidget {
             ),
         ],
       ),
-      title: Text(r.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+      title: Row(children: [
+        if (r.ruleId.isNotEmpty) ...[
+          Icon(Icons.repeat_rounded, size: 16, color: theme.colorScheme.primary),
+          const SizedBox(width: 6),
+        ],
+        Flexible(
+            child: Text(r.title, maxLines: 1, overflow: TextOverflow.ellipsis)),
+      ]),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -195,6 +206,68 @@ class _RecTile extends StatelessWidget {
             PopupMenuItem(value: 'path', child: Text(tr('rec.showFile'))),
           PopupMenuItem(value: 'delete', child: Text(tr('common.delete'))),
         ],
+      ),
+    );
+  }
+}
+
+class _RuleTile extends StatelessWidget {
+  final RecRule rule;
+  const _RuleTile(this.rule);
+
+  @override
+  Widget build(BuildContext context) {
+    final rec = context.watch<RecordingService>();
+    final next = rec.items
+        .where((r) => r.ruleId == rule.id && r.status == RecStatus.scheduled)
+        .map((r) => r.start)
+        .fold<int?>(null, (a, b) => a == null || b < a ? b : a);
+    final when = rule.mode == RecRepeat.weekly
+        ? tr('rec.seriesWeekly', [
+            weekdayLong(rule.weekday),
+            '${(rule.minuteOfDay ~/ 60).toString().padLeft(2, '0')}:${(rule.minuteOfDay % 60).toString().padLeft(2, '0')}',
+            rule.channel.name,
+          ])
+        : tr('rec.seriesEvery', [rule.channel.name]);
+    final nextText = next != null
+        ? tr('rec.seriesNext', [dayTime(next)])
+        : (rule.mode == RecRepeat.everyAiring ? tr('rec.seriesGuideHint') : '');
+    return ListTile(
+      leading: Stack(clipBehavior: Clip.none, children: [
+        ChannelLogo(url: rule.channel.logo, name: rule.channel.name),
+        const Positioned(
+            right: -6,
+            bottom: -6,
+            child: Icon(Icons.repeat_rounded, size: 18, color: Colors.redAccent)),
+      ]),
+      title: Text(rule.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text(nextText.isEmpty ? when : '$when\n$nextText'),
+      isThreeLine: nextText.isNotEmpty,
+      trailing: TextButton.icon(
+        style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+        icon: const Icon(Icons.stop_circle_outlined),
+        label: Text(tr('rec.seriesStop')),
+        onPressed: () async {
+          final ok = await showDialog<bool>(
+            context: context,
+            builder: (c) => AlertDialog(
+              title: Text(tr('rec.seriesStopQ')),
+              content: Text('${rule.title}\n\n${tr('rec.seriesStopText')}'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(c, false),
+                    child: Text(tr('common.cancel'))),
+                FilledButton(
+                    style: FilledButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        foregroundColor: Colors.white),
+                    onPressed: () => Navigator.pop(c, true),
+                    child: Text(tr('rec.seriesStop'))),
+              ],
+            ),
+          );
+          if (ok == true) rec.removeRule(rule);
+        },
       ),
     );
   }
