@@ -191,13 +191,13 @@ class AppState extends ChangeNotifier {
   String _friendly(Object e) {
     final s = e.toString();
     if (s.contains('SocketException') || s.contains('ClientException')) {
-      return 'Impossible de joindre le serveur. Verifie l\'URL et ta connexion.';
+      return 'Impossible de joindre le serveur. Vérifie l\'URL et ta connexion.';
     }
     if (s.contains('TimeoutException')) {
-      return 'Le serveur met trop de temps a repondre.';
+      return 'Le serveur met trop de temps à répondre.';
     }
     if (s.contains('HTTP 401') || s.contains('HTTP 403')) {
-      return 'Acces refuse par le serveur (identifiants ou abonnement).';
+      return 'Accès refusé par le serveur (identifiants ou abonnement).';
     }
     return s.replaceFirst('Exception: ', '');
   }

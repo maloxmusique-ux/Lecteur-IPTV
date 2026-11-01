@@ -202,7 +202,7 @@ class Catalog {
         case ContentType.series:
           series.add(c);
       }
-      final g = c.group.isEmpty ? 'Sans categorie' : c.group;
+      final g = c.group.isEmpty ? 'Sans catégorie' : c.group;
       if (seen[c.type]!.add(g)) groups[c.type]!.add(g);
     }
     return Catalog(

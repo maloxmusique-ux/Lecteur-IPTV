@@ -304,7 +304,7 @@ class _Overlay extends StatelessWidget {
                 ),
                 if (onFullscreen != null)
                   IconButton(
-                    tooltip: 'Plein ecran (F)',
+                    tooltip: 'Plein écran (F)',
                     icon: Icon(fullscreen
                         ? Icons.fullscreen_exit_rounded
                         : Icons.fullscreen_rounded),
@@ -348,7 +348,7 @@ class _Overlay extends StatelessWidget {
                       ),
                       if (engine.queue.length > 1) ...[
                         IconButton.filledTonal(
-                          tooltip: 'Precedent',
+                          tooltip: 'Précédent',
                           icon: const Icon(Icons.skip_previous_rounded),
                           onPressed: () {
                             onUserAction();
@@ -397,7 +397,7 @@ class _Overlay extends StatelessWidget {
               .where((s) => s.isNotEmpty)
               .toList();
           if (t.id == 'auto') return 'Automatique';
-          if (t.id == 'no') return 'Desactive';
+          if (t.id == 'no') return 'Désactivé';
           return parts.isEmpty ? 'Piste ${t.id}' : parts.join(' · ');
         }
 

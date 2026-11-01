@@ -275,7 +275,7 @@ class _SourceEditorState extends State<_SourceEditor> {
                     icon: Icon(advanced
                         ? Icons.expand_less_rounded
                         : Icons.expand_more_rounded),
-                    label: const Text('Options avancees'),
+                    label: const Text('Options avancées'),
                   ),
                 ),
                 if (advanced) ...[
@@ -284,14 +284,14 @@ class _SourceEditorState extends State<_SourceEditor> {
                     keyboardType: TextInputType.url,
                     decoration: const InputDecoration(
                       labelText: 'URL du guide TV (XMLTV)',
-                      helperText: 'Laisser vide pour la detection automatique',
+                      helperText: 'Laisser vide pour la détection automatique',
                     ),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: ua,
                     decoration: const InputDecoration(
-                      labelText: 'User-Agent personnalise',
+                      labelText: 'User-Agent personnalisé',
                       helperText: 'Si ton fournisseur en exige un',
                     ),
                   ),

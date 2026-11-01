@@ -46,11 +46,11 @@ class _SeriesScreenState extends State<SeriesScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Aucun episode disponible.'),
+                  const Text('Aucun épisode disponible.'),
                   const SizedBox(height: 12),
                   OutlinedButton(
                     onPressed: () => setState(_load),
-                    child: const Text('Reessayer'),
+                    child: const Text('Réessayer'),
                   ),
                 ],
               ),

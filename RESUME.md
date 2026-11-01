@@ -85,8 +85,9 @@ test/parsers_test.dart         Tests des parseurs
 
 ## 6. Reste à faire (prochaines étapes proposées)
 
-1. **Accents dans toute l'interface** (« Chaine » vers « Chaîne », « Series » vers « Séries », etc.). Seuls l'écran légal et l'écran Sources sont déjà corrigés.
-2. **Compilation automatique sur GitHub (GitHub Actions)** pour produire l'APK Android et la version Windows à télécharger.
+1. ~~Accents dans toute l'interface~~ : fait (1er novembre 2026).
+2. ~~Compilation automatique sur GitHub~~ : fait. Le fichier `.github/workflows/build.yml` compile l'APK Android et la version Windows à chaque envoi sur `main`, et les publie dans la release « Dernière version » (onglet Releases du dépôt).
+   - Signature Android : sans secrets, l'APK est signé avec une clé temporaire (il faut désinstaller avant chaque mise à jour). Pour une clé fixe, ajouter dans GitHub (Settings, Secrets and variables, Actions) : `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`. `android/app/build.gradle.kts` les utilise automatiquement via `android/key.properties`.
 3. Tester sur un vrai téléphone, une box Android TV et Windows (seul Linux a été testé).
 4. Une vraie icône et un nom d'app définitifs.
 5. Fonctions possibles : grille de guide TV complète, reprise des films là où on s'est arrêté, contrôle parental, plusieurs profils.

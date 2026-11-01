@@ -28,7 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
   static const _destinations = [
     (Icons.live_tv_outlined, Icons.live_tv_rounded, 'TV'),
     (Icons.movie_outlined, Icons.movie_rounded, 'Films'),
-    (Icons.video_library_outlined, Icons.video_library_rounded, 'Series'),
+    (Icons.video_library_outlined, Icons.video_library_rounded, 'Séries'),
     (Icons.star_border_rounded, Icons.star_rounded, 'Favoris'),
     (Icons.settings_input_antenna_outlined, Icons.settings_input_antenna,
         'Sources'),
@@ -167,7 +167,7 @@ class _BrowseViewState extends State<BrowseView> {
     Iterable<Channel> items = catalog.of(widget.type);
     final g = _group;
     if (g != null) {
-      items = items.where((c) => (c.group.isEmpty ? 'Sans categorie' : c.group) == g);
+      items = items.where((c) => (c.group.isEmpty ? 'Sans catégorie' : c.group) == g);
     }
     final q = _query.trim().toLowerCase();
     if (q.isNotEmpty) {
@@ -197,7 +197,7 @@ class _BrowseViewState extends State<BrowseView> {
   String get _title => switch (widget.type) {
         ContentType.live => 'TV en direct',
         ContentType.movie => 'Films',
-        ContentType.series => 'Series',
+        ContentType.series => 'Séries',
       };
 
   @override
@@ -396,7 +396,7 @@ class _GroupList extends StatelessWidget {
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    g ?? 'Toutes les categories',
+                    g ?? 'Toutes les catégories',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -422,7 +422,7 @@ class _LiveList extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final currentId = context.select<PlayerEngine, String?>((e) => e.current?.id);
-    if (items.isEmpty) return const Center(child: Text('Aucun resultat'));
+    if (items.isEmpty) return const Center(child: Text('Aucun résultat'));
     return ValueListenableBuilder<int>(
       valueListenable: app.minuteTick,
       builder: (context, _, _) {
@@ -459,7 +459,7 @@ class _PosterGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-    if (items.isEmpty) return const Center(child: Text('Aucun resultat'));
+    if (items.isEmpty) return const Center(child: Text('Aucun résultat'));
     return Scrollbar(
       child: GridView.builder(
         padding: const EdgeInsets.all(12),
@@ -511,7 +511,7 @@ class _PreviewPanel extends StatelessWidget {
                 child: c == null
                     ? Center(
                         child: Text(
-                          'Selectionne une chaine',
+                          'Sélectionne une chaîne',
                           style: theme.textTheme.bodyLarge
                               ?.copyWith(color: Colors.white54),
                         ),
@@ -531,7 +531,7 @@ class _PreviewPanel extends StatelessWidget {
                               right: 8,
                               bottom: 8,
                               child: IconButton.filledTonal(
-                                tooltip: 'Plein ecran',
+                                tooltip: 'Plein écran',
                                 icon: const Icon(Icons.fullscreen_rounded),
                                 onPressed: () =>
                                     openItem(context, c, engine.queue),
@@ -584,7 +584,7 @@ class _ProgrammeList extends StatelessWidget {
           return Text(
             app.epgLoading
                 ? 'Chargement du guide TV...'
-                : 'Pas de guide TV pour cette chaine.',
+                : 'Pas de guide TV pour cette chaîne.',
             style: theme.textTheme.bodyMedium
                 ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           );
@@ -667,8 +667,8 @@ class FavoritesView extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.all(32),
           child: Text(
-            'Ajoute des favoris avec l\'etoile (ou un appui long sur une '
-            'affiche). Ils apparaitront ici.',
+            'Ajoute des favoris avec l\'étoile (ou un appui long sur une '
+            'affiche). Ils apparaîtront ici.',
             textAlign: TextAlign.center,
           ),
         ),
@@ -685,7 +685,7 @@ class FavoritesView extends StatelessWidget {
       child: CustomScrollView(
         slivers: [
           if (live.isNotEmpty) ...[
-            SliverToBoxAdapter(child: title('Chaines favorites')),
+            SliverToBoxAdapter(child: title('Chaînes favorites')),
             SliverFixedExtentList(
               itemExtent: kChannelTileHeight,
               delegate: SliverChildBuilderDelegate(
@@ -703,7 +703,7 @@ class FavoritesView extends StatelessWidget {
             ),
           ],
           if (vod.isNotEmpty) ...[
-            SliverToBoxAdapter(child: title('Films et series')),
+            SliverToBoxAdapter(child: title('Films et séries')),
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               sliver: SliverGrid.builder(
@@ -724,7 +724,7 @@ class FavoritesView extends StatelessWidget {
             ),
           ],
           if (recent.isNotEmpty) ...[
-            SliverToBoxAdapter(child: title('Vus recemment')),
+            SliverToBoxAdapter(child: title('Vus récemment')),
             SliverFixedExtentList(
               itemExtent: kChannelTileHeight,
               delegate: SliverChildBuilderDelegate(
@@ -784,7 +784,7 @@ class _StatusView extends StatelessWidget {
             FilledButton.icon(
               onPressed: app.refresh,
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Reessayer'),
+              label: const Text('Réessayer'),
             ),
           ],
         ),
