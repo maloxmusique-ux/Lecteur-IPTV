@@ -6,11 +6,14 @@ import '../models/models.dart';
 /// permet de traiter des fichiers de plusieurs centaines de Mo.
 ///
 /// Seuls les programmes dans la fenetre [now - pastHours, now + futureHours]
-/// sont conserves pour limiter la memoire.
+/// sont conserves pour limiter la memoire. Les chaines avec rattrapage
+/// ([archiveHours] : tvg-id -> heures) gardent aussi leur passe.
 EpgData parseXmltv(
   String xml, {
-  int pastHours = 3,
-  int futureHours = 36,
+  int pastHours = 6,
+  int futureHours = 24 * 8,
+  Map<String, int> archiveHours = const {},
+  int maxDesc = 600,
   int? nowMs,
 }) {
   final now = nowMs ?? DateTime.now().millisecondsSinceEpoch;
@@ -43,8 +46,10 @@ EpgData parseXmltv(
           progChannel = _attr(event, 'channel');
           progStart = parseXmltvTime(_attr(event, 'start') ?? '');
           progStop = parseXmltvTime(_attr(event, 'stop') ?? '');
+          final arch = progChannel == null ? null : archiveHours[progChannel];
+          final from = arch == null ? minMs : now - arch * 3600000;
           keepProg = progChannel != null &&
-              progStop > minMs &&
+              progStop > from &&
               progStart < maxMs;
           title = '';
           desc = '';
@@ -81,7 +86,10 @@ EpgData parseXmltv(
           if (textTarget == 'title') title = text.toString().trim();
           textTarget = null;
         case 'desc':
-          if (textTarget == 'desc') desc = text.toString().trim();
+          if (textTarget == 'desc') {
+            desc = text.toString().trim();
+            if (desc.length > maxDesc) desc = '${desc.substring(0, maxDesc)}…';
+          }
           textTarget = null;
         case 'channel':
           channelId = null;
@@ -98,6 +106,10 @@ EpgData parseXmltv(
 
   for (final list in programmes.values) {
     list.sort((a, b) => a.start.compareTo(b.start));
+    // Supprime les doublons (meme heure de debut).
+    for (var i = list.length - 1; i > 0; i--) {
+      if (list[i].start == list[i - 1].start) list.removeAt(i);
+    }
   }
   return EpgData(programmes, nameIndex);
 }

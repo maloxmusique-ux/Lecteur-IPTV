@@ -73,10 +73,14 @@ class Repository {
 
   // -------------------------------------------------------------------- EPG
 
-  Future<EpgData> fetchEpg(String url, {String userAgent = ''}) async {
+  Future<EpgData> fetchEpg(
+    String url, {
+    String userAgent = '',
+    Map<String, int> archiveHours = const {},
+  }) async {
     final epg = await Isolate.run(() async {
       final xml = await fetchText(url, userAgent: userAgent);
-      return parseXmltv(xml);
+      return parseXmltv(xml, archiveHours: archiveHours);
     });
     _writeCache('epg_${_key(url)}.json', () => epg.toJson());
     return epg;
@@ -97,6 +101,9 @@ class Repository {
   }
 
   // ----------------------------------------------------------------- Helpers
+
+  /// Dossier de travail de l'application (sauvegardes, cache du direct).
+  Future<Directory> appDir() async => getApplicationSupportDirectory();
 
   Future<void> deleteCache(Source source) async {
     final f = await _file('catalog_${source.id}.json');

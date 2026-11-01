@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/i18n.dart';
 import '../../models/models.dart';
 import 'channel_logo.dart';
 
@@ -17,6 +18,7 @@ class ChannelTile extends StatelessWidget {
   final VoidCallback? onLongPress;
   final VoidCallback? onFavorite;
   final bool autofocus;
+  final bool recording;
 
   const ChannelTile({
     super.key,
@@ -30,6 +32,7 @@ class ChannelTile extends StatelessWidget {
     this.onLongPress,
     this.onFavorite,
     this.autofocus = false,
+    this.recording = false,
   });
 
   @override
@@ -50,6 +53,7 @@ class ChannelTile extends StatelessWidget {
           focusColor: scheme.primary.withValues(alpha: 0.22),
           onTap: onTap,
           onLongPress: onLongPress,
+          onSecondaryTap: onLongPress,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10),
             child: Row(
@@ -105,9 +109,21 @@ class ChannelTile extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (recording)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6),
+                    child: Icon(Icons.fiber_manual_record,
+                        size: 14, color: Colors.redAccent),
+                  ),
+                if (channel.hasArchive)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Icon(Icons.history_rounded,
+                        size: 16, color: scheme.onSurfaceVariant),
+                  ),
                 if (onFavorite != null)
                   IconButton(
-                    tooltip: favorite ? 'Retirer des favoris' : 'Favori',
+                    tooltip: favorite ? tr('fav.remove') : tr('fav.add'),
                     onPressed: onFavorite,
                     icon: Icon(
                       favorite ? Icons.star_rounded : Icons.star_border_rounded,
@@ -130,12 +146,18 @@ class PosterCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
 
+  /// Avancement de lecture (0..1), affiche en bas de l'affiche.
+  final double? progress;
+  final String? subtitle;
+
   const PosterCard({
     super.key,
     required this.item,
     required this.onTap,
     this.favorite = false,
     this.onLongPress,
+    this.progress,
+    this.subtitle,
   });
 
   @override
@@ -148,6 +170,7 @@ class PosterCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         onLongPress: onLongPress,
+        onSecondaryTap: onLongPress,
         focusColor: theme.colorScheme.primary.withValues(alpha: 0.3),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -172,17 +195,41 @@ class PosterCard extends StatelessWidget {
                       right: 6,
                       child: Icon(Icons.star_rounded, color: Colors.amber),
                     ),
+                  if (progress != null && progress! > 0)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 4,
+                        backgroundColor: Colors.black54,
+                      ),
+                    ),
                 ],
               ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
-              child: Text(
-                item.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(fontWeight: FontWeight.w600),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.name,
+                    maxLines: subtitle == null ? 2 : 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  if (subtitle != null)
+                    Text(
+                      subtitle!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                ],
               ),
             ),
           ],

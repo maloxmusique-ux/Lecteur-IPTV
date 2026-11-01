@@ -9,18 +9,29 @@ Lecteur IPTV multiplateforme haute performance (Android, Android TV, iOS, Window
 - **Guide TV XMLTV** (gzip supporté) : programme en cours, suivant, barre de progression
 - Aperçu vidéo intégré sur grand écran, plein écran instantané sans recharger le flux
 - Zapping : flèches Haut/Bas, PageUp/PageDown, touches chaîne de la télécommande, glissement vertical sur mobile
-- Favoris, historique, recherche instantanée, pistes audio et sous-titres
-- Navigation à la télécommande (Android TV, lanceur Leanback)
+- Favoris, historique, recherche instantanée, pistes vidéo, audio et sous-titres
+- Navigation à la télécommande (Android TV, lanceur Leanback), saisie du numéro de chaîne
+- **Grille du guide TV** sur 8 jours (hier + 7 jours), recherche dans tous les programmes, fiche émission
+- **Rappels** avec notification et passage automatique sur la chaîne
+- **Rattrapage Xtream** (catch-up / timeshift serveur) : revoir ou télécharger les émissions passées
+- **Pause du direct** : jusqu'à 2 h gardées sur disque, retour au direct en un clic
+- **Enregistrements** immédiats ou programmés depuis le guide, téléchargement des films et épisodes
+- **Reprise** des films et épisodes, rangée « Continuer à regarder »
+- **Profils** (dont profil enfant), **contrôle parental** avec code, verrouillage auto des catégories adultes
+- **Multi-écran** jusqu'à 4 chaînes, image dans l'image (Android), minuterie de mise en veille
+- Organisation des catégories (ordre, masquer, verrouiller), langues audio et sous-titres préférées
+- Sauvegarde et restauration de toutes les données
+- Interface en **français, anglais, espagnol et portugais**
 
 ## Pourquoi c'est fluide
 
 | Domaine | Technique |
 |---|---|
-| Lecture | Une seule instance libmpv réutilisée, décodage matériel, sondage du flux réduit (`analyzeduration 1.5s`), démarrage sans attendre le cache, reconnexion automatique |
+| Lecture | Une seule instance libmpv réutilisée, décodage matériel avec repli logiciel, petit tampon de démarrage réglable (Rapide / Équilibré / Stable), paquets corrompus ignorés, reconnexion illimitée du direct et relance si le flux bloque |
 | Chargement | Réseau et parsing M3U/JSON/XMLTV dans des **isolates** : l'UI ne bloque jamais (100 000 chaînes parsées en moins d'une seconde) |
 | Démarrage | Cache disque du catalogue et de l'EPG, affichage immédiat puis rafraîchissement en arrière-plan |
 | Listes | `itemExtent` fixe, images décodées à la taille d'affichage (`cacheWidth`), filtrage mémoïsé, recherche avec debounce |
-| EPG | Parsing XMLTV en flux (pas de DOM), fenêtre de 36 h, recherche binaire du programme en cours |
+| EPG | Parsing XMLTV en flux (pas de DOM), 8 jours à venir + passé des chaînes avec rattrapage, recherche binaire, grille qui ne construit que les cases visibles |
 
 ## Lancer
 
@@ -57,7 +68,7 @@ lib/
 
 ## Raccourcis du lecteur
 
-Haut/Bas : chaîne précédente/suivante · Gauche/Droite : -10 s/+10 s (VOD) · Espace : pause · F : plein écran · M : muet · Échap : retour
+Haut/Bas : chaîne précédente/suivante · Gauche/Droite : -10 s/+10 s (aussi dans le direct) · Espace : pause · L : retour au direct · I : infos du flux · chiffres : aller à une chaîne · F : plein écran · M : muet · Échap : retour
 
 ## Cadre légal
 

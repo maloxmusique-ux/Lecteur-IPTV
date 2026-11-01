@@ -4,16 +4,25 @@ import 'package:flutter/material.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/i18n.dart';
 import '../models/models.dart';
 import '../player/player_engine.dart';
+import '../services/recorder.dart';
+import '../services/reminders.dart';
 import '../state/app_state.dart';
-import 'player_screen.dart';
-import 'series_screen.dart';
+import 'catchup_screen.dart';
+import 'guide_screen.dart';
+import 'multiview_screen.dart';
+import 'navigation.dart';
+import 'programme_sheet.dart';
+import 'recordings_screen.dart';
+import 'settings_screen.dart';
 import 'sources_screen.dart';
 import 'widgets/channel_logo.dart';
 import 'widgets/channel_tile.dart';
+import 'widgets/pin_dialog.dart';
 
-const double kWideBreakpoint = 900;
+export 'navigation.dart' show openItem, kWideBreakpoint;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,57 +31,123 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  int _tab = 0;
+/// Onglets de l'accueil.
+enum HomeTab { live, guide, movies, series, mylist, recordings, sources, settings, more }
 
-  static const _destinations = [
-    (Icons.live_tv_outlined, Icons.live_tv_rounded, 'TV'),
-    (Icons.movie_outlined, Icons.movie_rounded, 'Films'),
-    (Icons.video_library_outlined, Icons.video_library_rounded, 'Séries'),
-    (Icons.star_border_rounded, Icons.star_rounded, 'Favoris'),
-    (Icons.settings_input_antenna_outlined, Icons.settings_input_antenna,
-        'Sources'),
+class _HomeScreenState extends State<HomeScreen> {
+  // Statique : l'onglet reste le meme apres un changement de langue.
+  static HomeTab _tab = HomeTab.live;
+
+  static (IconData, IconData, String) _dest(HomeTab t) => switch (t) {
+        HomeTab.live => (Icons.live_tv_outlined, Icons.live_tv_rounded, tr('tab.live')),
+        HomeTab.guide => (Icons.calendar_view_week_outlined, Icons.calendar_view_week_rounded, tr('tab.guide')),
+        HomeTab.movies => (Icons.movie_outlined, Icons.movie_rounded, tr('tab.movies')),
+        HomeTab.series => (Icons.video_library_outlined, Icons.video_library_rounded, tr('tab.series')),
+        HomeTab.mylist => (Icons.star_border_rounded, Icons.star_rounded, tr('tab.mylist')),
+        HomeTab.recordings => (Icons.fiber_manual_record_outlined, Icons.fiber_manual_record, tr('tab.recordings')),
+        HomeTab.sources => (Icons.settings_input_antenna_outlined, Icons.settings_input_antenna, tr('tab.sources')),
+        HomeTab.settings => (Icons.settings_outlined, Icons.settings_rounded, tr('tab.settings')),
+        HomeTab.more => (Icons.menu_rounded, Icons.menu_open_rounded, tr('tab.more')),
+      };
+
+  static const _wideTabs = [
+    HomeTab.live,
+    HomeTab.guide,
+    HomeTab.movies,
+    HomeTab.series,
+    HomeTab.mylist,
+    HomeTab.recordings,
+    HomeTab.sources,
+    HomeTab.settings,
   ];
+
+  static const _mobileTabs = [
+    HomeTab.live,
+    HomeTab.guide,
+    HomeTab.movies,
+    HomeTab.series,
+    HomeTab.more,
+  ];
+
+  Widget _view(HomeTab t) => switch (t) {
+        HomeTab.live => const BrowseView(type: ContentType.live, key: PageStorageKey('live')),
+        HomeTab.guide => const GuideView(),
+        HomeTab.movies => const BrowseView(type: ContentType.movie, key: PageStorageKey('movie')),
+        HomeTab.series => const BrowseView(type: ContentType.series, key: PageStorageKey('series')),
+        HomeTab.mylist => const MyListView(),
+        HomeTab.recordings => const RecordingsView(),
+        HomeTab.sources => const SourcesView(),
+        HomeTab.settings => const SettingsView(),
+        HomeTab.more => const _MoreView(),
+      };
 
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-    final wide = MediaQuery.sizeOf(context).width >= kWideBreakpoint;
-    final noSource = app.sources.isEmpty;
-    final tab = noSource ? 4 : _tab;
+    final recording = context.select<RecordingService, int>((r) => r.activeCount);
+    final wide = isWide(context);
+
+    if (app.sources.isEmpty) {
+      return const SourcesView(standalone: true);
+    }
+
+    final tabs = wide ? _wideTabs : _mobileTabs;
+    if (!tabs.contains(_tab)) _tab = wide ? HomeTab.mylist : HomeTab.more;
+    final index = tabs.indexOf(_tab);
 
     final body = IndexedStack(
-      index: tab,
-      children: const [
-        BrowseView(type: ContentType.live, key: PageStorageKey('live')),
-        BrowseView(type: ContentType.movie, key: PageStorageKey('movie')),
-        BrowseView(type: ContentType.series, key: PageStorageKey('series')),
-        FavoritesView(),
-        SourcesView(),
-      ],
+      index: index,
+      children: [for (final t in tabs) _view(t)],
     );
+
+    Widget icon(HomeTab t, bool selected) {
+      final d = _dest(t);
+      final i = Icon(selected ? d.$2 : d.$1);
+      if (t == HomeTab.recordings && recording > 0) {
+        return Badge(label: Text('$recording'), child: i);
+      }
+      return i;
+    }
 
     if (wide) {
       return Scaffold(
         body: Row(
           children: [
-            NavigationRail(
-              selectedIndex: tab,
-              labelType: NavigationRailLabelType.all,
-              onDestinationSelected: (i) => setState(() => _tab = i),
-              leading: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Icon(Icons.play_circle_fill_rounded,
-                    size: 36, color: Theme.of(context).colorScheme.primary),
-              ),
-              destinations: [
-                for (final d in _destinations)
-                  NavigationRailDestination(
-                    icon: Icon(d.$1),
-                    selectedIcon: Icon(d.$2),
-                    label: Text(d.$3),
+            LayoutBuilder(
+              builder: (context, c) => SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: c.maxHeight),
+                  child: IntrinsicHeight(
+                    child: NavigationRail(
+                      selectedIndex: index,
+                      labelType: NavigationRailLabelType.all,
+                      minWidth: 76,
+                      onDestinationSelected: (i) => setState(() => _tab = tabs[i]),
+                      leading: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Icon(Icons.play_circle_fill_rounded,
+                            size: 34, color: Theme.of(context).colorScheme.primary),
+                      ),
+                      trailing: Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: IconButton(
+                          tooltip: tr('multi.title'),
+                          icon: const Icon(Icons.grid_view_rounded),
+                          onPressed: () => openMultiView(context),
+                        ),
+                      ),
+                      destinations: [
+                        for (final t in tabs)
+                          NavigationRailDestination(
+                            icon: icon(t, false),
+                            selectedIcon: icon(t, true),
+                            label: Text(_dest(t).$3),
+                          ),
+                      ],
+                    ),
                   ),
-              ],
+                ),
+              ),
             ),
             const VerticalDivider(width: 1),
             Expanded(child: body),
@@ -83,14 +158,14 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       body: body,
       bottomNavigationBar: NavigationBar(
-        selectedIndex: tab,
-        onDestinationSelected: (i) => setState(() => _tab = i),
+        selectedIndex: index,
+        onDestinationSelected: (i) => setState(() => _tab = tabs[i]),
         destinations: [
-          for (final d in _destinations)
+          for (final t in tabs)
             NavigationDestination(
-              icon: Icon(d.$1),
-              selectedIcon: Icon(d.$2),
-              label: d.$3,
+              icon: icon(t == HomeTab.more && recording > 0 ? HomeTab.recordings : t, false),
+              selectedIcon: icon(t, true),
+              label: _dest(t).$3,
             ),
         ],
       ),
@@ -98,43 +173,50 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ---------------------------------------------------------------- Actions
+/// Menu "Plus" sur mobile.
+class _MoreView extends StatelessWidget {
+  const _MoreView();
 
-/// Ouvre une entree selon son type et la mise en page.
-void openItem(BuildContext context, Channel c, List<Channel> queue) {
-  final engine = context.read<PlayerEngine>();
-  final app = context.read<AppState>();
-  final wide = MediaQuery.sizeOf(context).width >= kWideBreakpoint;
-
-  if (c.type == ContentType.series && c.seriesId.isNotEmpty) {
-    Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => SeriesScreen(series: c)));
-    return;
-  }
-
-  if (c.type == ContentType.live && wide) {
-    // Desktop/TV : 1er clic = apercu, 2e clic = plein ecran (sans recharger).
-    if (engine.current?.id == c.id) {
-      Navigator.of(context).push(_playerRoute(stopOnExit: false));
-    } else {
-      engine.play(c, queue: queue);
-      app.markWatched(c);
-    }
-    return;
-  }
-
-  engine.play(c, queue: queue);
-  app.markWatched(c);
-  Navigator.of(context).push(_playerRoute(stopOnExit: true));
-}
-
-Route<void> _playerRoute({required bool stopOnExit}) => PageRouteBuilder(
-      transitionDuration: const Duration(milliseconds: 180),
-      reverseTransitionDuration: const Duration(milliseconds: 140),
-      pageBuilder: (_, _, _) => PlayerScreen(stopOnExit: stopOnExit),
-      transitionsBuilder: (_, anim, _, child) =>
-          FadeTransition(opacity: anim, child: child),
+  @override
+  Widget build(BuildContext context) {
+    final rec = context.select<RecordingService, int>((r) => r.activeCount);
+    void push(Widget w) =>
+        Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
+    return Scaffold(
+      appBar: AppBar(title: Text(tr('tab.more'))),
+      body: ListView(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.star_rounded),
+            title: Text(tr('tab.mylist')),
+            onTap: () => push(const MyListView(standalone: true)),
+          ),
+          ListTile(
+            leading: const Icon(Icons.fiber_manual_record),
+            title: Text(tr('tab.recordings')),
+            trailing: rec > 0 ? Badge(label: Text('$rec')) : null,
+            onTap: () => push(const RecordingsView()),
+          ),
+          ListTile(
+            leading: const Icon(Icons.grid_view_rounded),
+            title: Text(tr('multi.title')),
+            onTap: () => openMultiView(context),
+          ),
+          ListTile(
+            leading: const Icon(Icons.settings_input_antenna),
+            title: Text(tr('tab.sources')),
+            onTap: () => push(const SourcesView()),
+          ),
+          ListTile(
+            leading: const Icon(Icons.settings_rounded),
+            title: Text(tr('tab.settings')),
+            onTap: () => push(const SettingsView()),
+          ),
+        ],
+      ),
     );
+  }
+}
 
 // ------------------------------------------------------------- BrowseView
 
@@ -153,30 +235,42 @@ class _BrowseViewState extends State<BrowseView> {
   final _search = TextEditingController();
 
   // Memoisation du filtrage : recalcule uniquement si une entree change.
-  Catalog? _memoCatalog;
-  String? _memoGroup;
-  String? _memoQuery;
+  Object? _memoKey;
   List<Channel> _memo = const [];
 
-  List<Channel> _filtered(Catalog catalog) {
-    if (identical(catalog, _memoCatalog) &&
-        _group == _memoGroup &&
-        _query == _memoQuery) {
-      return _memo;
-    }
-    Iterable<Channel> items = catalog.of(widget.type);
+  List<Channel> _filtered(AppState app) {
+    final key = (app.catalog, _group, _query, app.unlocked, app.hiddenGroups,
+        app.lockedGroups, app.profileId, app.parentalOn);
+    if (key == _memoKey) return _memo;
+    Iterable<Channel> items;
     final g = _group;
     if (g != null) {
-      items = items.where((c) => (c.group.isEmpty ? 'Sans catégorie' : c.group) == g);
+      items = app.catalog
+          .of(widget.type)
+          .where((c) => c.groupKey == g && app.canSee(c));
+    } else {
+      items = app.visibleItems(widget.type);
+      // Sans filtre, on respecte l'ordre des categories choisi.
+      if (app.groupOrder[widget.type.index]?.isNotEmpty == true) {
+        final rank = {
+          for (final (i, g) in app.groupsFor(widget.type).indexed) g: i,
+        };
+        final list = items.toList();
+        final idx = {for (final (i, c) in list.indexed) c.id: i};
+        list.sort((a, b) {
+          final r = (rank[a.groupKey] ?? 1 << 30)
+              .compareTo(rank[b.groupKey] ?? 1 << 30);
+          return r != 0 ? r : idx[a.id]!.compareTo(idx[b.id]!);
+        });
+        items = list;
+      }
     }
     final q = _query.trim().toLowerCase();
     if (q.isNotEmpty) {
       final words = q.split(RegExp(r'\s+'));
       items = items.where((c) => words.every(c.searchKey.contains));
     }
-    _memoCatalog = catalog;
-    _memoGroup = _group;
-    _memoQuery = _query;
+    _memoKey = key;
     return _memo = items.toList(growable: false);
   }
 
@@ -187,6 +281,13 @@ class _BrowseViewState extends State<BrowseView> {
     });
   }
 
+  Future<void> _selectGroup(AppState app, String? g) async {
+    if (g != null && app.isLockedGroup(widget.type, g) && !app.unlocked) {
+      if (!await askUnlock(context)) return;
+    }
+    if (mounted) setState(() => _group = g);
+  }
+
   @override
   void dispose() {
     _debounce?.cancel();
@@ -195,23 +296,23 @@ class _BrowseViewState extends State<BrowseView> {
   }
 
   String get _title => switch (widget.type) {
-        ContentType.live => 'TV en direct',
-        ContentType.movie => 'Films',
-        ContentType.series => 'Séries',
+        ContentType.live => tr('browse.live'),
+        ContentType.movie => tr('tab.movies'),
+        ContentType.series => tr('tab.series'),
       };
 
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-    final wide = MediaQuery.sizeOf(context).width >= kWideBreakpoint;
-    final groups = app.catalog.groups[widget.type] ?? const <String>[];
+    final wide = isWide(context);
+    final groups = app.groupsFor(widget.type);
     if (_group != null && !groups.contains(_group)) _group = null;
 
     if (app.catalog.isEmpty) {
       return _StatusView(app: app);
     }
 
-    final items = _filtered(app.catalog);
+    final items = _filtered(app);
     final list = widget.type == ContentType.live
         ? _LiveList(items: items)
         : _PosterGrid(items: items);
@@ -229,11 +330,12 @@ class _BrowseViewState extends State<BrowseView> {
       return Row(
         children: [
           SizedBox(
-            width: 250,
+            width: 240,
             child: _GroupList(
+              type: widget.type,
               groups: groups,
               selected: _group,
-              onSelect: (g) => setState(() => _group = g),
+              onSelect: (g) => _selectGroup(app, g),
             ),
           ),
           const VerticalDivider(width: 1),
@@ -262,12 +364,16 @@ class _BrowseViewState extends State<BrowseView> {
               itemCount: groups.length + 1,
               itemBuilder: (_, i) {
                 final g = i == 0 ? null : groups[i - 1];
+                final locked = g != null &&
+                    app.isLockedGroup(widget.type, g) &&
+                    !app.unlocked;
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: ChoiceChip(
-                    label: Text(g ?? 'Tout'),
+                    avatar: locked ? const Icon(Icons.lock_rounded, size: 16) : null,
+                    label: Text(g == null ? tr('common.all') : AppState.groupLabel(g)),
                     selected: _group == g,
-                    onSelected: (_) => setState(() => _group = g),
+                    onSelected: (_) => _selectGroup(app, g),
                   ),
                 );
               },
@@ -323,7 +429,7 @@ class _Header extends StatelessWidget {
                 )
               else
                 IconButton(
-                  tooltip: 'Actualiser',
+                  tooltip: tr('common.refresh'),
                   onPressed: onRefresh,
                   icon: const Icon(Icons.refresh_rounded),
                 ),
@@ -334,7 +440,7 @@ class _Header extends StatelessWidget {
             controller: controller,
             onChanged: onChanged,
             decoration: InputDecoration(
-              hintText: 'Rechercher',
+              hintText: tr('common.search'),
               prefixIcon: const Icon(Icons.search_rounded),
               isDense: true,
               filled: true,
@@ -363,11 +469,13 @@ class _Header extends StatelessWidget {
 }
 
 class _GroupList extends StatelessWidget {
+  final ContentType type;
   final List<String> groups;
   final String? selected;
   final ValueChanged<String?> onSelect;
 
   const _GroupList({
+    required this.type,
     required this.groups,
     required this.selected,
     required this.onSelect,
@@ -375,6 +483,7 @@ class _GroupList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
     final scheme = Theme.of(context).colorScheme;
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -383,6 +492,8 @@ class _GroupList extends StatelessWidget {
       itemBuilder: (_, i) {
         final g = i == 0 ? null : groups[i - 1];
         final sel = selected == g;
+        final locked =
+            g != null && app.isLockedGroup(type, g) && !app.unlocked;
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           child: Material(
@@ -393,17 +504,23 @@ class _GroupList extends StatelessWidget {
               onTap: () => onSelect(g),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    g ?? 'Toutes les catégories',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontWeight: sel ? FontWeight.w700 : FontWeight.w400,
-                      color: sel ? scheme.onSecondaryContainer : null,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        g == null ? tr('browse.allGroups') : AppState.groupLabel(g),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: sel ? FontWeight.w700 : FontWeight.w400,
+                          color: sel ? scheme.onSecondaryContainer : null,
+                        ),
+                      ),
                     ),
-                  ),
+                    if (locked)
+                      Icon(Icons.lock_rounded,
+                          size: 16, color: scheme.onSurfaceVariant),
+                  ],
                 ),
               ),
             ),
@@ -421,8 +538,10 @@ class _LiveList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-    final currentId = context.select<PlayerEngine, String?>((e) => e.current?.id);
-    if (items.isEmpty) return const Center(child: Text('Aucun résultat'));
+    final currentId =
+        context.select<PlayerEngine, String?>((e) => e.current?.id);
+    final recorder = context.watch<RecordingService>();
+    if (items.isEmpty) return Center(child: Text(tr('common.noResults')));
     return ValueListenableBuilder<int>(
       valueListenable: app.minuteTick,
       builder: (context, _, _) {
@@ -441,8 +560,10 @@ class _LiveList extends StatelessWidget {
                 now: app.epg.isEmpty ? null : app.epg.nowNext(c, nowMs).$1,
                 selected: c.id == currentId,
                 favorite: app.isFavorite(c),
+                recording: recorder.recordingFor(c) != null,
                 onFavorite: () => app.toggleFavorite(c),
                 onTap: () => openItem(context, c, items),
+                onLongPress: () => showChannelMenu(context, c, items),
               );
             },
           ),
@@ -452,6 +573,80 @@ class _LiveList extends StatelessWidget {
   }
 }
 
+/// Menu d'une chaine (appui long ou clic droit).
+Future<void> showChannelMenu(
+    BuildContext context, Channel c, List<Channel> queue) async {
+  final app = context.read<AppState>();
+  final recorder = context.read<RecordingService>();
+  final source = app.active;
+  if (source == null) return;
+  final rec = recorder.recordingFor(c);
+  final now = DateTime.now().millisecondsSinceEpoch;
+  final cur = app.epg.nowNext(c, now).$1;
+  await showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    builder: (ctx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: ChannelLogo(url: c.logo, name: c.name),
+            title: Text(c.name, style: Theme.of(ctx).textTheme.titleMedium),
+            subtitle: cur == null ? null : Text(cur.title),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: Icon(app.isFavorite(c) ? Icons.star_rounded : Icons.star_border_rounded),
+            title: Text(app.isFavorite(c) ? tr('fav.remove') : tr('fav.add')),
+            onTap: () {
+              Navigator.pop(ctx);
+              app.toggleFavorite(c);
+            },
+          ),
+          if (c.hasArchive && source.kind == SourceKind.xtream)
+            ListTile(
+              leading: const Icon(Icons.history_rounded),
+              title: Text(tr('catchup.title')),
+              subtitle: Text(tr('catchup.days', [c.archiveDays])),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => CatchupScreen(channel: c)));
+              },
+            ),
+          if (rec != null)
+            ListTile(
+              leading: const Icon(Icons.stop_circle_outlined, color: Colors.redAccent),
+              title: Text(tr('rec.stop')),
+              onTap: () {
+                Navigator.pop(ctx);
+                recorder.stopRecording(rec);
+              },
+            )
+          else
+            ListTile(
+              leading: const Icon(Icons.fiber_manual_record, color: Colors.redAccent),
+              title: Text(tr('rec.now')),
+              onTap: () {
+                Navigator.pop(ctx);
+                recordNowDialog(context, c);
+              },
+            ),
+          ListTile(
+            leading: const Icon(Icons.grid_view_rounded),
+            title: Text(tr('multi.add')),
+            onTap: () {
+              Navigator.pop(ctx);
+              openMultiView(context, initial: c);
+            },
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class _PosterGrid extends StatelessWidget {
   final List<Channel> items;
   const _PosterGrid({required this.items});
@@ -459,7 +654,7 @@ class _PosterGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-    if (items.isEmpty) return const Center(child: Text('Aucun résultat'));
+    if (items.isEmpty) return Center(child: Text(tr('common.noResults')));
     return Scrollbar(
       child: GridView.builder(
         padding: const EdgeInsets.all(12),
@@ -476,13 +671,64 @@ class _PosterGrid extends StatelessWidget {
           return PosterCard(
             item: c,
             favorite: app.isFavorite(c),
+            progress: app.progressOf(c)?.fraction,
             onTap: () => openItem(context, c, items),
-            onLongPress: () => app.toggleFavorite(c),
+            onLongPress: () => showVodMenu(context, c),
           );
         },
       ),
     );
   }
+}
+
+/// Menu d'un film ou d'une serie.
+Future<void> showVodMenu(BuildContext context, Channel c) async {
+  final app = context.read<AppState>();
+  final source = app.active;
+  if (source == null) return;
+  await showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    builder: (ctx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            title: Text(c.name, style: Theme.of(ctx).textTheme.titleMedium),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: Icon(app.isFavorite(c) ? Icons.star_rounded : Icons.star_border_rounded),
+            title: Text(app.isFavorite(c) ? tr('fav.remove') : tr('fav.add')),
+            onTap: () {
+              Navigator.pop(ctx);
+              app.toggleFavorite(c);
+            },
+          ),
+          if (c.type == ContentType.movie && c.url.isNotEmpty)
+            ListTile(
+              leading: const Icon(Icons.download_rounded),
+              title: Text(tr('rec.download')),
+              subtitle: Text(tr('rec.downloadHint')),
+              onTap: () {
+                Navigator.pop(ctx);
+                context.read<RecordingService>().download(source, c, c.url, c.name);
+                toast(context, tr('rec.downloadStarted'));
+              },
+            ),
+          if (app.progressOf(c) != null)
+            ListTile(
+              leading: const Icon(Icons.restart_alt_rounded),
+              title: Text(tr('resume.clear')),
+              onTap: () {
+                Navigator.pop(ctx);
+                app.clearProgress(c);
+              },
+            ),
+        ],
+      ),
+    ),
+  );
 }
 
 // ---------------------------------------------------------- Preview panel
@@ -511,7 +757,7 @@ class _PreviewPanel extends StatelessWidget {
                 child: c == null
                     ? Center(
                         child: Text(
-                          'Sélectionne une chaîne',
+                          tr('preview.select'),
                           style: theme.textTheme.bodyLarge
                               ?.copyWith(color: Colors.white54),
                         ),
@@ -527,11 +773,18 @@ class _PreviewPanel extends StatelessWidget {
                                 controls: NoVideoControls,
                               ),
                             ),
+                            if (engine.lastError != null)
+                              Center(
+                                child: Text(
+                                  tr('player.reconnecting', [engine.retries]),
+                                  style: const TextStyle(color: Colors.white70),
+                                ),
+                              ),
                             Positioned(
                               right: 8,
                               bottom: 8,
                               child: IconButton.filledTonal(
-                                tooltip: 'Plein écran',
+                                tooltip: tr('player.fullscreen'),
                                 icon: const Icon(Icons.fullscreen_rounded),
                                 onPressed: () =>
                                     openItem(context, c, engine.queue),
@@ -555,6 +808,19 @@ class _PreviewPanel extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis),
                 ),
+                if (c.hasArchive && app.active?.kind == SourceKind.xtream)
+                  IconButton(
+                    tooltip: tr('catchup.title'),
+                    icon: const Icon(Icons.history_rounded),
+                    onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) => CatchupScreen(channel: c))),
+                  ),
+                IconButton(
+                  tooltip: tr('common.more'),
+                  icon: const Icon(Icons.more_vert_rounded),
+                  onPressed: () => showChannelMenu(context, c, engine.queue),
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -574,64 +840,99 @@ class _ProgrammeList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final reminders = context.watch<ReminderService>();
+    final recorder = context.watch<RecordingService>();
+    final sourceId = app.active?.id ?? '';
     return ValueListenableBuilder<int>(
       valueListenable: app.minuteTick,
       builder: (context, _, _) {
         final now = DateTime.now().millisecondsSinceEpoch;
         final all = app.epg.forChannel(channel) ?? const <Programme>[];
-        final upcoming = all.where((p) => p.stop > now).take(30).toList();
+        final upcoming = all.where((p) => p.stop > now).take(40).toList();
         if (upcoming.isEmpty) {
           return Text(
-            app.epgLoading
-                ? 'Chargement du guide TV...'
-                : 'Pas de guide TV pour cette chaîne.',
+            app.epgLoading ? tr('epg.loading') : tr('epg.none'),
             style: theme.textTheme.bodyMedium
                 ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           );
         }
-        return ListView.separated(
+        String? lastDay;
+        return ListView.builder(
           itemCount: upcoming.length,
-          separatorBuilder: (_, _) => const Divider(height: 1),
           itemBuilder: (_, i) {
             final p = upcoming[i];
             final live = p.start <= now;
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: 56,
-                    child: Text(_hm(p.start),
-                        style: theme.textTheme.labelLarge?.copyWith(
-                            color: live ? theme.colorScheme.primary : null)),
+            final day = dayLabel(DateTime.fromMillisecondsSinceEpoch(p.start));
+            final showDay = day != lastDay;
+            lastDay = day;
+            final hasRem = reminders.has(sourceId, channel, p);
+            final hasRec = recorder.isScheduled(sourceId, channel, p);
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (showDay && i > 0)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(0, 12, 0, 4),
+                    child: Text(day,
+                        style: theme.textTheme.labelLarge
+                            ?.copyWith(color: theme.colorScheme.primary)),
                   ),
-                  Expanded(
-                    child: Column(
+                InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () => showProgrammeSheet(context, channel, p),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(p.title,
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                                fontWeight:
-                                    live ? FontWeight.w700 : FontWeight.w400)),
-                        if (live) ...[
-                          const SizedBox(height: 6),
-                          LinearProgressIndicator(
-                              value: p.progress(now), minHeight: 3),
-                        ],
-                        if (live && p.desc.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Text(p.desc,
-                              maxLines: 4,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant)),
-                        ],
+                        SizedBox(
+                          width: 56,
+                          child: Text(hm(p.start),
+                              style: theme.textTheme.labelLarge?.copyWith(
+                                  color: live ? theme.colorScheme.primary : null)),
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(p.title,
+                                  style: theme.textTheme.bodyLarge?.copyWith(
+                                      fontWeight:
+                                          live ? FontWeight.w700 : FontWeight.w400)),
+                              if (live) ...[
+                                const SizedBox(height: 6),
+                                LinearProgressIndicator(
+                                    value: p.progress(now), minHeight: 3),
+                              ],
+                              if (live && p.desc.isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text(p.desc,
+                                    maxLines: 4,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                        color: theme.colorScheme.onSurfaceVariant)),
+                              ],
+                            ],
+                          ),
+                        ),
+                        if (hasRem)
+                          const Padding(
+                            padding: EdgeInsets.only(left: 6),
+                            child: Icon(Icons.notifications_active_rounded,
+                                size: 18, color: Colors.amber),
+                          ),
+                        if (hasRec)
+                          const Padding(
+                            padding: EdgeInsets.only(left: 6),
+                            child: Icon(Icons.fiber_manual_record,
+                                size: 16, color: Colors.redAccent),
+                          ),
                       ],
                     ),
                   ),
-                ],
-              ),
+                ),
+                const Divider(height: 1),
+              ],
             );
           },
         );
@@ -640,107 +941,164 @@ class _ProgrammeList extends StatelessWidget {
   }
 }
 
-String _hm(int ms) {
-  final d = DateTime.fromMillisecondsSinceEpoch(ms);
-  return '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-}
+// ------------------------------------------------------------- Ma liste
 
-// -------------------------------------------------------------- Favorites
-
-class FavoritesView extends StatelessWidget {
-  const FavoritesView({super.key});
+/// Continuer a regarder, favoris, rappels et vus recemment.
+class MyListView extends StatelessWidget {
+  final bool standalone;
+  const MyListView({super.key, this.standalone = false});
 
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
+    final reminders = context.watch<ReminderService>();
     final live = app.favoriteChannels(ContentType.live);
     final vod = [
       ...app.favoriteChannels(ContentType.movie),
       ...app.favoriteChannels(ContentType.series),
     ];
+    final cont = app.continueWatching();
     final recent = app.recentChannels();
+    final rems = reminders.items;
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     final theme = Theme.of(context);
-
-    if (live.isEmpty && vod.isEmpty && recent.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Text(
-            'Ajoute des favoris avec l\'étoile (ou un appui long sur une '
-            'affiche). Ils apparaîtront ici.',
-            textAlign: TextAlign.center,
-          ),
-        ),
-      );
-    }
 
     Widget title(String t) => Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Text(t, style: theme.textTheme.titleMedium),
         );
 
-    return SafeArea(
-      bottom: false,
-      child: CustomScrollView(
-        slivers: [
-          if (live.isNotEmpty) ...[
-            SliverToBoxAdapter(child: title('Chaînes favorites')),
-            SliverFixedExtentList(
-              itemExtent: kChannelTileHeight,
-              delegate: SliverChildBuilderDelegate(
-                childCount: live.length,
-                (context, i) => ChannelTile(
-                  channel: live[i],
-                  number: i + 1,
-                  nowMs: nowMs,
-                  now: app.epg.nowNext(live[i], nowMs).$1,
-                  favorite: true,
-                  onFavorite: () => app.toggleFavorite(live[i]),
-                  onTap: () => openItem(context, live[i], live),
-                ),
-              ),
+    final empty = live.isEmpty &&
+        vod.isEmpty &&
+        recent.isEmpty &&
+        cont.isEmpty &&
+        rems.isEmpty;
+
+    final content = empty
+        ? Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Text(tr('mylist.empty'), textAlign: TextAlign.center),
             ),
-          ],
-          if (vod.isNotEmpty) ...[
-            SliverToBoxAdapter(child: title('Films et séries')),
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              sliver: SliverGrid.builder(
-                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 170,
-                  childAspectRatio: 0.58,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
+          )
+        : CustomScrollView(
+            slivers: [
+              if (cont.isNotEmpty) ...[
+                SliverToBoxAdapter(child: title(tr('mylist.continue'))),
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: 250,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      itemCount: cont.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 12),
+                      itemBuilder: (context, i) {
+                        final w = cont[i];
+                        return SizedBox(
+                          width: 145,
+                          child: PosterCard(
+                            item: w.item,
+                            progress: w.fraction,
+                            subtitle: tr('mylist.left', [
+                              formatDuration(Duration(
+                                  milliseconds: (w.durMs - w.posMs).clamp(0, 1 << 40)))
+                            ]),
+                            onTap: () => playFullscreen(context, w.item,
+                                [for (final x in cont) x.item]),
+                            onLongPress: () => app.clearProgress(w.item),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                 ),
-                itemCount: vod.length,
-                itemBuilder: (context, i) => PosterCard(
-                  item: vod[i],
-                  favorite: true,
-                  onTap: () => openItem(context, vod[i], vod),
-                  onLongPress: () => app.toggleFavorite(vod[i]),
+              ],
+              if (live.isNotEmpty) ...[
+                SliverToBoxAdapter(child: title(tr('mylist.favChannels'))),
+                SliverFixedExtentList(
+                  itemExtent: kChannelTileHeight,
+                  delegate: SliverChildBuilderDelegate(
+                    childCount: live.length,
+                    (context, i) => ChannelTile(
+                      channel: live[i],
+                      number: i + 1,
+                      nowMs: nowMs,
+                      now: app.epg.nowNext(live[i], nowMs).$1,
+                      favorite: true,
+                      onFavorite: () => app.toggleFavorite(live[i]),
+                      onTap: () => openItem(context, live[i], live),
+                      onLongPress: () => showChannelMenu(context, live[i], live),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ],
-          if (recent.isNotEmpty) ...[
-            SliverToBoxAdapter(child: title('Vus récemment')),
-            SliverFixedExtentList(
-              itemExtent: kChannelTileHeight,
-              delegate: SliverChildBuilderDelegate(
-                childCount: recent.length,
-                (context, i) => ChannelTile(
-                  channel: recent[i],
-                  nowMs: nowMs,
-                  favorite: app.isFavorite(recent[i]),
-                  onTap: () => openItem(context, recent[i], recent),
+              ],
+              if (rems.isNotEmpty) ...[
+                SliverToBoxAdapter(child: title(tr('mylist.reminders'))),
+                SliverList.builder(
+                  itemCount: rems.length,
+                  itemBuilder: (context, i) {
+                    final r = rems[i];
+                    return ListTile(
+                      leading: ChannelLogo(url: r.logo, name: r.channelName),
+                      title: Text(r.title),
+                      subtitle: Text('${r.channelName} · ${dayTime(r.start)}'),
+                      trailing: IconButton(
+                        tooltip: tr('rem.remove'),
+                        icon: const Icon(Icons.notifications_off_outlined),
+                        onPressed: () => reminders.remove(r),
+                      ),
+                    );
+                  },
                 ),
-              ),
-            ),
-          ],
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
-        ],
+              ],
+              if (vod.isNotEmpty) ...[
+                SliverToBoxAdapter(child: title(tr('mylist.favVod'))),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  sliver: SliverGrid.builder(
+                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: 170,
+                      childAspectRatio: 0.58,
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                    ),
+                    itemCount: vod.length,
+                    itemBuilder: (context, i) => PosterCard(
+                      item: vod[i],
+                      favorite: true,
+                      progress: app.progressOf(vod[i])?.fraction,
+                      onTap: () => openItem(context, vod[i], vod),
+                      onLongPress: () => showVodMenu(context, vod[i]),
+                    ),
+                  ),
+                ),
+              ],
+              if (recent.isNotEmpty) ...[
+                SliverToBoxAdapter(child: title(tr('mylist.recent'))),
+                SliverFixedExtentList(
+                  itemExtent: kChannelTileHeight,
+                  delegate: SliverChildBuilderDelegate(
+                    childCount: recent.length,
+                    (context, i) => ChannelTile(
+                      channel: recent[i],
+                      nowMs: nowMs,
+                      favorite: app.isFavorite(recent[i]),
+                      onTap: () => openItem(context, recent[i], recent),
+                    ),
+                  ),
+                ),
+              ],
+              const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            ],
+          );
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(tr('tab.mylist')),
+        automaticallyImplyLeading: standalone,
       ),
+      body: content,
     );
   }
 }
@@ -755,7 +1113,7 @@ class _StatusView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     if (app.active == null) {
-      return const Center(child: Text('Ajoute une source dans l\'onglet Sources.'));
+      return Center(child: Text(tr('status.addSource')));
     }
     if (app.loading) {
       return Center(
@@ -764,7 +1122,7 @@ class _StatusView extends StatelessWidget {
           children: [
             const CircularProgressIndicator(),
             const SizedBox(height: 16),
-            Text('Chargement de ${app.active!.name}...'),
+            Text(tr('status.loading', [app.active!.name])),
           ],
         ),
       );
@@ -778,13 +1136,12 @@ class _StatusView extends StatelessWidget {
             Icon(Icons.error_outline_rounded,
                 size: 56, color: theme.colorScheme.error),
             const SizedBox(height: 12),
-            Text(app.error ?? 'Cette source est vide.',
-                textAlign: TextAlign.center),
+            Text(app.error ?? tr('status.empty'), textAlign: TextAlign.center),
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: app.refresh,
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Réessayer'),
+              label: Text(tr('common.retry')),
             ),
           ],
         ),

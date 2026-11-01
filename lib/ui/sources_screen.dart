@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/i18n.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 import 'legal_screen.dart';
+import 'settings_screen.dart';
 
 /// Gestion des sources (playlists M3U et comptes Xtream).
 class SourcesView extends StatelessWidget {
-  const SourcesView({super.key});
+  /// Affichee seule (aucune source) : ajoute un acces aux reglages.
+  final bool standalone;
+  const SourcesView({super.key, this.standalone = false});
 
   @override
   Widget build(BuildContext context) {
@@ -15,10 +19,17 @@ class SourcesView extends StatelessWidget {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sources'),
+        title: Text(tr('tab.sources')),
         actions: [
+          if (standalone)
+            IconButton(
+              tooltip: tr('tab.settings'),
+              icon: const Icon(Icons.settings_rounded),
+              onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const SettingsView())),
+            ),
           IconButton(
-            tooltip: 'Mentions légales',
+            tooltip: tr('legal.title'),
             icon: const Icon(Icons.verified_user_outlined),
             onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const LegalScreen())),
@@ -28,7 +39,7 @@ class SourcesView extends StatelessWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showSourceEditor(context),
         icon: const Icon(Icons.add_rounded),
-        label: const Text('Ajouter'),
+        label: Text(tr('common.add')),
       ),
       body: app.sources.isEmpty
           ? Center(
@@ -40,26 +51,24 @@ class SourcesView extends StatelessWidget {
                     Icon(Icons.live_tv_rounded,
                         size: 72, color: theme.colorScheme.primary),
                     const SizedBox(height: 16),
-                    Text('Aucune source',
+                    Text(tr('src.none'),
                         style: theme.textTheme.headlineSmall),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Ajoute une playlist M3U ou un compte Xtream Codes '
-                      'auquel tu as légalement accès (abonnement officiel, '
-                      'ton fournisseur d\'accès, ton propre tuner TV...).',
+                    Text(
+                      tr('src.noneHint'),
                       textAlign: TextAlign.center,
                     ),
                     TextButton(
                       onPressed: () => Navigator.of(context).push(
                           MaterialPageRoute(
                               builder: (_) => const LegalScreen())),
-                      child: const Text('Où trouver des sources légales ?'),
+                      child: Text(tr('src.whereLegal')),
                     ),
                     const SizedBox(height: 16),
                     FilledButton.icon(
                       onPressed: () => showSourceEditor(context),
                       icon: const Icon(Icons.add_rounded),
-                      label: const Text('Ajouter une source'),
+                      label: Text(tr('src.add')),
                     ),
                   ],
                 ),
@@ -77,11 +86,7 @@ class SourcesView extends StatelessWidget {
                             : Icons.dns_rounded,
                       ),
                       title: Text(s.name),
-                      subtitle: Text(
-                        s.kind == SourceKind.m3u
-                            ? 'Playlist M3U'
-                            : 'Xtream · ${s.username}',
-                      ),
+                      subtitle: Text(_subtitle(app, s)),
                       selected: app.active?.id == s.id,
                       onTap: () => app.selectSource(s),
                       trailing: PopupMenuButton<String>(
@@ -95,27 +100,27 @@ class SourcesView extends StatelessWidget {
                             final ok = await showDialog<bool>(
                               context: context,
                               builder: (c) => AlertDialog(
-                                title: const Text('Supprimer la source ?'),
+                                title: Text(tr('src.deleteQ')),
                                 content: Text(s.name),
                                 actions: [
                                   TextButton(
                                       onPressed: () => Navigator.pop(c, false),
-                                      child: const Text('Annuler')),
+                                      child: Text(tr('common.cancel'))),
                                   FilledButton(
                                       onPressed: () => Navigator.pop(c, true),
-                                      child: const Text('Supprimer')),
+                                      child: Text(tr('common.delete'))),
                                 ],
                               ),
                             );
                             if (ok == true) await app.removeSource(s);
                           }
                         },
-                        itemBuilder: (_) => const [
-                          PopupMenuItem(value: 'edit', child: Text('Modifier')),
+                        itemBuilder: (_) => [
+                          PopupMenuItem(value: 'edit', child: Text(tr('common.edit'))),
                           PopupMenuItem(
-                              value: 'refresh', child: Text('Actualiser')),
+                              value: 'refresh', child: Text(tr('common.refresh'))),
                           PopupMenuItem(
-                              value: 'delete', child: Text('Supprimer')),
+                              value: 'delete', child: Text(tr('common.delete'))),
                         ],
                       ),
                     ),
@@ -124,6 +129,23 @@ class SourcesView extends StatelessWidget {
             ),
     );
   }
+}
+
+String _subtitle(AppState app, Source s) {
+  if (s.kind == SourceKind.m3u) return tr('src.m3u');
+  final base = 'Xtream · ${s.username}';
+  final a = app.active?.id == s.id ? app.account : null;
+  if (a == null) return base;
+  final parts = [base];
+  if (a.expires != null) {
+    final e = a.expires!;
+    parts.add(tr('src.expires',
+        ['${e.day} ${monthShort(e.month)} ${e.year}']));
+  }
+  if (a.maxConnections > 0) {
+    parts.add(tr('src.connections', [a.maxConnections]));
+  }
+  return parts.join(' · ');
 }
 
 Future<void> showSourceEditor(BuildContext context, {Source? existing}) {
@@ -166,8 +188,7 @@ class _SourceEditorState extends State<_SourceEditor> {
   Future<void> _save() async {
     if (!_form.currentState!.validate()) return;
     if (!certified) {
-      setState(() => error =
-          'Tu dois certifier avoir légalement accès à cette source.');
+      setState(() => error = tr('src.mustCertify'));
       return;
     }
     setState(() {
@@ -179,7 +200,7 @@ class _SourceEditorState extends State<_SourceEditor> {
       id: widget.existing?.id ??
           DateTime.now().microsecondsSinceEpoch.toRadixString(36),
       name: name.text.trim().isEmpty
-          ? (kind == SourceKind.m3u ? 'Ma playlist' : 'Mon serveur')
+          ? (kind == SourceKind.m3u ? tr('src.myPlaylist') : tr('src.myServer'))
           : name.text.trim(),
       kind: kind,
       url: url.text.trim(),
@@ -204,13 +225,13 @@ class _SourceEditorState extends State<_SourceEditor> {
   }
 
   String? _required(String? v) =>
-      (v == null || v.trim().isEmpty) ? 'Champ obligatoire' : null;
+      (v == null || v.trim().isEmpty) ? tr('common.required') : null;
 
   @override
   Widget build(BuildContext context) {
     final xtream = kind == SourceKind.xtream;
     return AlertDialog(
-      title: Text(widget.existing == null ? 'Nouvelle source' : 'Modifier'),
+      title: Text(widget.existing == null ? tr('src.new') : tr('common.edit')),
       content: SizedBox(
         width: 460,
         child: Form(
@@ -237,7 +258,7 @@ class _SourceEditorState extends State<_SourceEditor> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: name,
-                  decoration: const InputDecoration(labelText: 'Nom'),
+                  decoration: InputDecoration(labelText: tr('src.name')),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
@@ -245,7 +266,7 @@ class _SourceEditorState extends State<_SourceEditor> {
                   validator: _required,
                   keyboardType: TextInputType.url,
                   decoration: InputDecoration(
-                    labelText: xtream ? 'URL du serveur' : 'URL de la playlist',
+                    labelText: xtream ? tr('src.serverUrl') : tr('src.playlistUrl'),
                     hintText: xtream
                         ? 'http://serveur.exemple:8080'
                         : 'http://.../playlist.m3u',
@@ -257,14 +278,14 @@ class _SourceEditorState extends State<_SourceEditor> {
                     controller: user,
                     validator: _required,
                     decoration:
-                        const InputDecoration(labelText: 'Nom d\'utilisateur'),
+                        InputDecoration(labelText: tr('src.username')),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: pass,
                     validator: _required,
                     obscureText: true,
-                    decoration: const InputDecoration(labelText: 'Mot de passe'),
+                    decoration: InputDecoration(labelText: tr('src.password')),
                   ),
                 ],
                 const SizedBox(height: 8),
@@ -275,24 +296,24 @@ class _SourceEditorState extends State<_SourceEditor> {
                     icon: Icon(advanced
                         ? Icons.expand_less_rounded
                         : Icons.expand_more_rounded),
-                    label: const Text('Options avancées'),
+                    label: Text(tr('src.advanced')),
                   ),
                 ),
                 if (advanced) ...[
                   TextFormField(
                     controller: epg,
                     keyboardType: TextInputType.url,
-                    decoration: const InputDecoration(
-                      labelText: 'URL du guide TV (XMLTV)',
-                      helperText: 'Laisser vide pour la détection automatique',
+                    decoration: InputDecoration(
+                      labelText: tr('src.epgUrl'),
+                      helperText: tr('src.epgUrlHint'),
                     ),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: ua,
-                    decoration: const InputDecoration(
-                      labelText: 'User-Agent personnalisé',
-                      helperText: 'Si ton fournisseur en exige un',
+                    decoration: InputDecoration(
+                      labelText: tr('src.ua'),
+                      helperText: tr('src.uaHint'),
                     ),
                   ),
                 ],
@@ -301,10 +322,7 @@ class _SourceEditorState extends State<_SourceEditor> {
                   onChanged: (v) => setState(() => certified = v ?? false),
                   controlAffinity: ListTileControlAffinity.leading,
                   contentPadding: EdgeInsets.zero,
-                  title: const Text(
-                    'Je certifie avoir légalement le droit d\'accéder aux '
-                    'contenus de cette source.',
-                  ),
+                  title: Text(tr('src.certify')),
                 ),
                 if (error != null) ...[
                   const SizedBox(height: 12),
@@ -320,7 +338,7 @@ class _SourceEditorState extends State<_SourceEditor> {
       actions: [
         TextButton(
           onPressed: busy ? null : () => Navigator.pop(context),
-          child: const Text('Annuler'),
+          child: Text(tr('common.cancel')),
         ),
         FilledButton(
           onPressed: busy ? null : _save,
@@ -329,7 +347,7 @@ class _SourceEditorState extends State<_SourceEditor> {
                   width: 18,
                   height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('Enregistrer'),
+              : Text(tr('common.save')),
         ),
       ],
     );

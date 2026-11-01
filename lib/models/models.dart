@@ -3,6 +3,9 @@ library;
 
 enum ContentType { live, movie, series }
 
+/// Cle interne de la categorie des entrees sans categorie (traduite a l'affichage).
+const kNoGroup = '\u0000none';
+
 enum SourceKind { m3u, xtream }
 
 /// Une entree jouable (chaine live, film, serie ou episode).
@@ -21,6 +24,9 @@ class Channel {
   /// En-tetes HTTP specifiques (User-Agent, Referer) issus de #EXTVLCOPT.
   final Map<String, String> headers;
 
+  /// Nombre de jours de rattrapage (Xtream tv_archive), 0 si aucun.
+  final int archiveDays;
+
   /// Nom en minuscules, pre-calcule pour une recherche rapide.
   final String searchKey;
 
@@ -34,7 +40,35 @@ class Channel {
     this.type = ContentType.live,
     this.seriesId = '',
     this.headers = const {},
+    this.archiveDays = 0,
   }) : searchKey = _normalize(name);
+
+  /// Identifiant de flux Xtream (live_123 -> 123), vide sinon.
+  String get streamId {
+    final i = id.indexOf('_');
+    if (i == -1) return '';
+    final p = id.substring(0, i);
+    if (p != 'live' && p != 'vod' && p != 'ep') return '';
+    return id.substring(i + 1);
+  }
+
+  bool get hasArchive => archiveDays > 0;
+
+  /// Categorie affichee (les entrees sans categorie sont regroupees).
+  String get groupKey => group.isEmpty ? kNoGroup : group;
+
+  Channel copyWith({String? url, String? name, ContentType? type}) => Channel(
+        id: id,
+        name: name ?? this.name,
+        url: url ?? this.url,
+        logo: logo,
+        group: group,
+        epgId: epgId,
+        type: type ?? this.type,
+        seriesId: seriesId,
+        headers: headers,
+        archiveDays: archiveDays,
+      );
 
   static String _normalize(String s) => s.toLowerCase();
 
@@ -48,6 +82,7 @@ class Channel {
         't': type.index,
         if (seriesId.isNotEmpty) 's': seriesId,
         if (headers.isNotEmpty) 'h': headers,
+        if (archiveDays > 0) 'a': archiveDays,
       };
 
   factory Channel.fromJson(Map<String, dynamic> j) => Channel(
@@ -62,6 +97,7 @@ class Channel {
         headers: j['h'] == null
             ? const {}
             : Map<String, String>.from(j['h'] as Map),
+        archiveDays: (j['a'] as int?) ?? 0,
       );
 }
 
@@ -202,7 +238,7 @@ class Catalog {
         case ContentType.series:
           series.add(c);
       }
-      final g = c.group.isEmpty ? 'Sans catégorie' : c.group;
+      final g = c.groupKey;
       if (seen[c.type]!.add(g)) groups[c.type]!.add(g);
     }
     return Catalog(
@@ -241,6 +277,10 @@ class Programme {
 
   const Programme(this.start, this.stop, this.title, this.desc);
 
+  bool isLive(int nowMs) => start <= nowMs && stop > nowMs;
+  bool isPast(int nowMs) => stop <= nowMs;
+  Duration get duration => Duration(milliseconds: stop - start);
+
   double progress(int nowMs) {
     if (stop <= start) return 0;
     return ((nowMs - start) / (stop - start)).clamp(0.0, 1.0);
@@ -265,6 +305,9 @@ class EpgData {
   static const empty = EpgData({}, {});
 
   bool get isEmpty => programmes.isEmpty;
+
+  /// Nombre total de programmes (pour les statistiques).
+  int get count => programmes.values.fold(0, (a, l) => a + l.length);
 
   static String normalizeName(String s) =>
       s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
