@@ -59,4 +59,12 @@ lib/
 
 Haut/Bas : chaîne précédente/suivante · Gauche/Droite : -10 s/+10 s (VOD) · Espace : pause · F : plein écran · M : muet · Échap : retour
 
-StreamFlow ne fournit aucun contenu : utilise uniquement des playlists auxquelles tu as légalement accès.
+## Cadre légal
+
+StreamFlow est un lecteur multimédia, comme VLC. **Il ne contient, ne vend et ne référence aucune chaîne, playlist ou contenu**, et ne fait la promotion d'aucun service.
+
+- Au premier lancement, l'utilisateur doit accepter de n'utiliser que des contenus auxquels il a légalement accès.
+- Chaque source ajoutée nécessite de certifier ce droit d'accès.
+- Une page « Mentions légales » (onglet Sources) rappelle les règles et suggère des sources légales : playlist officielle du fournisseur d'accès, tuner TNT personnel (TVHeadend, Jellyfin), flux gratuits publiés par les diffuseurs eux-mêmes, fournisseur IPTV sous licence.
+
+Règle à respecter si tu distribues l'app (Play Store, App Store) : ne jamais intégrer de playlist par défaut, ni de lien ou de capture d'écran montrant des chaînes protégées sans autorisation.

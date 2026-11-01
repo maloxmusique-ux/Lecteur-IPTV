@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/models.dart';
 import '../state/app_state.dart';
+import 'legal_screen.dart';
 
 /// Gestion des sources (playlists M3U et comptes Xtream).
 class SourcesView extends StatelessWidget {
@@ -13,7 +14,17 @@ class SourcesView extends StatelessWidget {
     final app = context.watch<AppState>();
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Sources')),
+      appBar: AppBar(
+        title: const Text('Sources'),
+        actions: [
+          IconButton(
+            tooltip: 'Mentions légales',
+            icon: const Icon(Icons.verified_user_outlined),
+            onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const LegalScreen())),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showSourceEditor(context),
         icon: const Icon(Icons.add_rounded),
@@ -34,10 +45,17 @@ class SourcesView extends StatelessWidget {
                     const SizedBox(height: 8),
                     const Text(
                       'Ajoute une playlist M3U ou un compte Xtream Codes '
-                      'fourni par ton service IPTV.',
+                      'auquel tu as légalement accès (abonnement officiel, '
+                      'ton fournisseur d\'accès, ton propre tuner TV...).',
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 24),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                              builder: (_) => const LegalScreen())),
+                      child: const Text('Où trouver des sources légales ?'),
+                    ),
+                    const SizedBox(height: 16),
                     FilledButton.icon(
                       onPressed: () => showSourceEditor(context),
                       icon: const Icon(Icons.add_rounded),
@@ -134,6 +152,7 @@ class _SourceEditorState extends State<_SourceEditor> {
   final _form = GlobalKey<FormState>();
   bool busy = false;
   bool advanced = false;
+  late bool certified = widget.existing != null;
   String? error;
 
   @override
@@ -146,6 +165,11 @@ class _SourceEditorState extends State<_SourceEditor> {
 
   Future<void> _save() async {
     if (!_form.currentState!.validate()) return;
+    if (!certified) {
+      setState(() => error =
+          'Tu dois certifier avoir légalement accès à cette source.');
+      return;
+    }
     setState(() {
       busy = true;
       error = null;
@@ -272,6 +296,16 @@ class _SourceEditorState extends State<_SourceEditor> {
                     ),
                   ),
                 ],
+                CheckboxListTile(
+                  value: certified,
+                  onChanged: (v) => setState(() => certified = v ?? false),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text(
+                    'Je certifie avoir légalement le droit d\'accéder aux '
+                    'contenus de cette source.',
+                  ),
+                ),
                 if (error != null) ...[
                   const SizedBox(height: 12),
                   Text(error!,

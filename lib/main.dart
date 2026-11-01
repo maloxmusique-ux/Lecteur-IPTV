@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'player/player_engine.dart';
 import 'state/app_state.dart';
 import 'ui/home_screen.dart';
+import 'ui/legal_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -62,7 +63,9 @@ class StreamFlowApp extends StatelessWidget {
         ...WidgetsApp.defaultShortcuts,
         const SingleActivator(LogicalKeyboardKey.select): const ActivateIntent(),
       },
-      home: const _UserAgentSync(child: HomeScreen()),
+      home: context.select<AppState, bool>((a) => a.legalAccepted)
+          ? const _UserAgentSync(child: HomeScreen())
+          : const LegalGate(),
     );
   }
 }

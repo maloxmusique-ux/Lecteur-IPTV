@@ -23,6 +23,8 @@ class AppState extends ChangeNotifier {
   bool epgLoading = false;
   String? error;
 
+  bool legalAccepted = false;
+
   Set<String> favorites = {};
   List<String> recents = [];
 
@@ -37,6 +39,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
+    legalAccepted = _prefs.getBool('legal_v1') ?? false;
     final raw = _prefs.getString('sources');
     if (raw != null) {
       sources = [
@@ -53,6 +56,12 @@ class AppState extends ChangeNotifier {
       minuteTick.value++;
     });
     if (active != null) unawaited(_loadActive());
+  }
+
+  Future<void> acceptLegal() async {
+    legalAccepted = true;
+    await _prefs.setBool('legal_v1', true);
+    notifyListeners();
   }
 
   // ---------------------------------------------------------------- Sources
