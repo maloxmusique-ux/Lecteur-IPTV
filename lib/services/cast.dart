@@ -555,3 +555,24 @@ Uint8List encodeCastMessage(
   }
   return ns == null || payload == null ? null : (ns, payload);
 }
+
+/// AirPlay (iPhone, iPad, Mac) : ouvre le lecteur Apple avec le bouton
+/// AirPlay. Marche avec Apple TV et les televiseurs compatibles AirPlay 2
+/// (Samsung, LG, Sony, Vizio... recents).
+class AirPlay {
+  AirPlay._();
+  static const _ch = MethodChannel('canalix/airplay');
+  static bool get supported => Platform.isIOS || Platform.isMacOS;
+
+  /// Appareil fictif qui represente le choix "AirPlay" dans la liste.
+  static const device = CastDevice('AirPlay', 'airplay', 0);
+
+  static Future<void> play(Channel c, {String userAgent = ''}) async {
+    final (url, _, _) = castMediaFor(c);
+    await _ch.invokeMethod('play', {
+      'url': url,
+      'title': c.name,
+      'userAgent': userAgent,
+    });
+  }
+}

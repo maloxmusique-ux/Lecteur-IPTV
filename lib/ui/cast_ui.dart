@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../l10n/i18n.dart';
 import '../player/player_engine.dart';
 import '../services/cast.dart';
+import '../state/app_state.dart';
 
 /// Choix d'un Chromecast puis diffusion de la chaine ou du film en cours.
 Future<void> showCastDialog(BuildContext context) async {
@@ -16,6 +17,11 @@ Future<void> showCastDialog(BuildContext context) async {
   );
   if (d == null) return;
   await engine.player.pause();
+  if (d == AirPlay.device) {
+    if (!context.mounted) return;
+    await AirPlay.play(c, userAgent: context.read<AppState>().active?.userAgent ?? '');
+    return;
+  }
   await CastSession.instance.play(d, c);
 }
 
@@ -66,6 +72,15 @@ class _CastPickerState extends State<_CastPicker> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (AirPlay.supported) ...[
+              ListTile(
+                leading: const Icon(Icons.airplay_rounded, color: Colors.lightBlueAccent),
+                title: const Text('AirPlay'),
+                subtitle: Text(tr('cast.airplaySub')),
+                onTap: () => Navigator.pop(context, AirPlay.device),
+              ),
+              const Divider(),
+            ],
             if (devices == null)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -85,7 +100,7 @@ class _CastPickerState extends State<_CastPicker> {
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Text(tr('cast.none')),
               ),
-              if (_otherTvs.isNotEmpty)
+              if (_otherTvs.isNotEmpty && !AirPlay.supported)
                 Container(
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.all(12),
