@@ -5,16 +5,16 @@ class Brand {
   Brand._();
 
   /// Nom court affiche dans l'app.
-  static const name = 'StreamFlow';
+  static const name = 'Canalix';
 
   /// Nom complet (boutiques, recus).
-  static const fullName = 'StreamFlow IPTV Player';
+  static const fullName = 'Canalix IPTV Player';
 
   /// Adresse du service client.
-  static const supportEmail = 'support@streamflow.app';
+  static const supportEmail = 'support@canalixtv.com';
 
   /// Site web (aide, conditions, confidentialite).
-  static const website = 'https://streamflow.app';
+  static const website = 'https://canalixtv.com';
 
   /// URL de la fonction Supabase "license" (vide = mode test local).
   static const licenseApi = String.fromEnvironment('LICENSE_API');

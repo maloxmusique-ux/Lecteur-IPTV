@@ -174,6 +174,14 @@ class _PaywallScreenState extends State<PaywallScreen> {
                       label: Text(tr('pay.alreadyPaid')),
                     ),
                     TextButton.icon(
+                      onPressed: () async {
+                        final ok = await showRedeemDialog(context);
+                        if (ok && context.mounted) Navigator.of(context).maybePop();
+                      },
+                      icon: const Icon(Icons.card_giftcard_rounded),
+                      label: Text(tr('code.have')),
+                    ),
+                    TextButton.icon(
                       onPressed: () => Navigator.of(context).push(
                           MaterialPageRoute(builder: (_) => const HelpScreen())),
                       icon: const Icon(Icons.help_outline_rounded),
@@ -499,7 +507,9 @@ class SubscriptionScreen extends StatelessWidget {
     final info = lic.info;
     final theme = Theme.of(context);
     final store = info.source == 'apple' || info.source == 'google';
-    final recurring = info.plan?.recurring ?? false;
+    final gift = info.source == 'gift';
+    // Un acces offert ne se renouvelle jamais : rien a annuler.
+    final recurring = !gift && (info.plan?.recurring ?? false);
     final active = info.status == LicenseStatus.active;
 
     final (statusText, statusColor) = switch (info.status) {
@@ -512,6 +522,10 @@ class SubscriptionScreen extends StatelessWidget {
     String detail;
     if (info.status == LicenseStatus.trial) {
       detail = tr('sub.trialEnds', [_date(info.trialEndsAt)]);
+    } else if (active && gift && info.expiresAt == null) {
+      detail = tr('code.giftLifetime');
+    } else if (active && gift) {
+      detail = tr('code.giftUntil', [_date(info.expiresAt!)]);
     } else if (active && info.plan == Plan.lifetime) {
       detail = tr('sub.lifetime');
     } else if (active && info.autoRenew && info.expiresAt != null) {
@@ -556,7 +570,13 @@ class SubscriptionScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 14),
-                  if (info.plan != null)
+                  if (gift && active)
+                    Row(children: [
+                      const Icon(Icons.card_giftcard_rounded, color: Colors.amber),
+                      const SizedBox(width: 8),
+                      Text(tr('code.giftAccess'), style: theme.textTheme.titleLarge),
+                    ])
+                  else if (info.plan != null)
                     Text('${planName(info.plan!)} · ${info.plan!.price}',
                         style: theme.textTheme.titleLarge),
                   const SizedBox(height: 4),
@@ -632,6 +652,14 @@ class SubscriptionScreen extends StatelessWidget {
               label: Text(active ? tr('sub.change') : tr('sub.subscribe')),
             ),
 
+          if (!active || info.expiresAt != null) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () => showRedeemDialog(context),
+              icon: const Icon(Icons.card_giftcard_rounded),
+              label: Text(tr('code.have')),
+            ),
+          ],
           if (info.payments.isNotEmpty) ...[
             const SizedBox(height: 24),
             Text(tr('sub.receipts'), style: theme.textTheme.titleMedium),
@@ -735,7 +763,7 @@ class HelpScreen extends StatelessWidget {
     final lic = context.read<LicenseService>();
     final theme = Theme.of(context);
     final faq = [
-      for (var i = 1; i <= 7; i++) (tr('faq.q$i'), tr('faq.a$i')),
+      for (var i = 1; i <= 9; i++) (tr('faq.q$i'), tr('faq.a$i')),
     ];
     Future<void> write() async {
       final body = tr('help.mailBody', [
@@ -793,6 +821,114 @@ class HelpScreen extends StatelessWidget {
           Center(child: _MacChip(mac: lic.mac)),
         ],
       ),
+    );
+  }
+}
+
+/// Fenetre "J'ai un code" : renvoie true si le code a debloque l'app.
+Future<bool> showRedeemDialog(BuildContext context) async {
+  final ok = await showDialog<bool>(
+      context: context, builder: (_) => const _RedeemDialog());
+  return ok ?? false;
+}
+
+class _RedeemDialog extends StatefulWidget {
+  const _RedeemDialog();
+  @override
+  State<_RedeemDialog> createState() => _RedeemDialogState();
+}
+
+class _RedeemDialogState extends State<_RedeemDialog> {
+  final _ctrl = TextEditingController();
+  final _focus = FocusNode();
+  String? _error;
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final code = _ctrl.text.trim();
+    if (code.isEmpty) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final lic = context.read<LicenseService>();
+    final err = await lic.redeem(code);
+    if (!mounted) return;
+    if (err == null) {
+      final info = lic.info;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        backgroundColor: Colors.green.shade700,
+        content: Text(
+            info.expiresAt == null
+                ? tr('code.okLifetime')
+                : tr('code.okUntil', [_date(info.expiresAt!)]),
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+      ));
+      Navigator.of(context).pop(true);
+    } else {
+      setState(() {
+        _busy = false;
+        _error = tr(err);
+      });
+      _focus.requestFocus();
+      _ctrl.selection = TextSelection(baseOffset: 0, extentOffset: _ctrl.text.length);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      icon: const Icon(Icons.card_giftcard_rounded, size: 40, color: Colors.amber),
+      title: Text(tr('code.title')),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(tr('code.text')),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _ctrl,
+              focusNode: _focus,
+              autofocus: true,
+              textCapitalization: TextCapitalization.characters,
+              style: const TextStyle(
+                  fontSize: 20, letterSpacing: 2, fontWeight: FontWeight.w700),
+              decoration: InputDecoration(
+                hintText: 'CANALIX-XXXX-XXXX',
+                errorText: _error,
+                border: const OutlineInputBorder(),
+              ),
+              onSubmitted: (_) => _submit(),
+            ),
+            if (Brand.testMode) ...[
+              const SizedBox(height: 8),
+              Text(tr('code.testHint'),
+                  style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: _busy ? null : () => Navigator.of(context).pop(false),
+            child: Text(tr('common.cancel'))),
+        FilledButton(
+          onPressed: _busy ? null : _submit,
+          child: _busy
+              ? const SizedBox(
+                  width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+              : Text(tr('code.use')),
+        ),
+      ],
     );
   }
 }

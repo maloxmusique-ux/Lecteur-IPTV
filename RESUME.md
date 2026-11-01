@@ -1,4 +1,4 @@
-# Résumé du projet StreamFlow (Lecteur IPTV)
+# Résumé du projet Canalix (Lecteur IPTV, anciennement StreamFlow)
 
 Ce fichier résume tout le travail fait jusqu'ici, pour reprendre le projet dans une nouvelle conversation.
 Pour reprendre : ouvre une nouvelle session Claude avec le dépôt `maloxmusique-ux/Lecteur-IPTV`, puis dis « lis RESUME.md et continuons ».
@@ -74,7 +74,7 @@ Choix faits ensemble :
 - **Fiches films et séries** (Xtream `get_vod_info` / `get_series_info`, sans clé) : affiche, image de fond, année, durée, genre, note sur 10, résumé, réalisation, distribution, bande-annonce YouTube, bouton « Reprendre à », téléchargement. Série : bouton qui lance le prochain épisode, résumés et durées des épisodes, épisodes vus cochés.
 - **Enregistrement en arrière-plan sur Android** : service au premier plan (`RecordingService.kt`) avec notification, verrous processeur et Wi-Fi, tant qu'un enregistrement est en cours ou prévu. Ne pas fermer l'app depuis les apps récentes.
 - **Chromecast** (`lib/services/cast.dart`) : protocole Cast v2 écrit à la main (aucun SDK), recherche mDNS `_googlecast._tcp` (verrou multicast sur Android) ou adresse IP manuelle, lecteur multimédia par défaut de Google. Les flux Xtream `.ts` sont envoyés en `.m3u8`. Le zapping suit sur la télé. Certains flux (http HLS) peuvent être refusés par le Chromecast : message clair dans ce cas. Pas encore testé sur un vrai Chromecast.
-- **Mac et iPhone** : réglages iOS (réseau local, Bonjour, Fichiers, langues), droits macOS (réseau, dossiers). La compilation GitHub produit maintenant `StreamFlow-macos.zip` et vérifie que l'app iPhone compile. Guide pas à pas : `INSTALLER-IPHONE.md` (Xcode sur le Mac). La publication Windows/Android n'est jamais bloquée par un échec Apple.
+- **Mac et iPhone** : réglages iOS (réseau local, Bonjour, Fichiers, langues), droits macOS (réseau, dossiers). La compilation GitHub produit maintenant `Canalix-macos.zip` et vérifie que l'app iPhone compile. Guide pas à pas : `INSTALLER-IPHONE.md` (Xcode sur le Mac). La publication Windows/Android n'est jamais bloquée par un échec Apple.
 - Échap = retour en arrière sur ordinateur.
 
 ### Ajouté le 1er novembre 2026 (version 4 : abonnements)
@@ -89,8 +89,13 @@ Modèle choisi par Léandre : **app gratuite à télécharger, accès payant par
 - **Mode test** tant que les variables GitHub `LICENSE_API` et `LICENSE_KEY` ne sont pas définies : paiements simulés, outils « Recommencer / Terminer l'essai » dans Mon abonnement.
 - Nom, courriel de support et site : un seul fichier, `lib/config/brand.dart`.
 
-### Nom de l'app (à décider)
-« StreamFlow » est déjà pris par au moins 3 apps IPTV (App Store et Android). Noms proposés, sans app IPTV trouvée : Zapix, Ondo, Canalix, Plavo, Zentra, Kavio, Tivano, Vexo, Zapora (+ « IPTV Player » derrière pour les recherches). Léandre réfléchit.
+### Version 5 (1er novembre 2026) : nom Canalix, codes cadeaux, portail
+- **Nom : Canalix** (« StreamFlow » était déjà pris par d'autres apps IPTV). Nom en boutique : « Canalix IPTV Player ». Domaines libres au 1er nov. 2026 : `canalixtv.com`, `getcanalix.com` (à acheter). Identifiant d'app partout : `com.canalixtv.app`. Exécutable Windows : `canalix.exe`. Fichiers publiés : `Canalix-windows.zip`, `Canalix-android.apk`, `Canalix-macos.zip`. Le paquet Dart garde le nom interne `streamflow` (invisible). Au premier lancement, les données de l'ancienne app StreamFlow sont copiées automatiquement (`services/migrate.dart`).
+- **Codes cadeaux** : 1, 3, 6, 12 mois ou à vie. Bouton « J'ai un code » sur l'écran des forfaits et dans Mon abonnement. Un accès offert ne se renouvelle jamais (rien à annuler, rien de prélevé) ; une durée s'ajoute à un accès offert déjà en cours. En mode test : `TEST-1M`, `TEST-12M`, `TEST-VIE`. Serveur : tables `promo_codes` et `redemptions`, action `redeem` de la fonction `license`.
+- **Portail de Léandre** : `portail/index.html` (un seul fichier, à ouvrir dans le navigateur). Créer des codes (durée, nombre, personnes par code, note), activer une adresse MAC directement, retirer un accès offert, désactiver un code, voir les appareils et les revenus. Protégé par le secret Supabase `ADMIN_PASSWORD` (fonction `admin`). Mode démo sans serveur. Aucun compte client à gérer.
+- **VPN** : écarté (coûteux, responsabilité légale, et les fournisseurs IPTV bloquent souvent les VPN). À la place :
+- **Identifiants chiffrés** : les sources (URL, utilisateurs, mots de passe) sont chiffrées en AES-256-GCM (`services/vault.dart`), clé dans le trousseau du système (`flutter_secure_storage`). Les anciennes sources en clair sont chiffrées au démarrage. La sauvegarde exporte les sources en clair pour pouvoir les restaurer ailleurs.
+- **Politique de confidentialité** : `CONFIDENTIALITE.md` (Loi 25 / LPRPDE), résumé dans l'aide de l'app (2 nouvelles questions : code cadeau, données).
 
 ### Cadre légal
 - Écran d'acceptation obligatoire au premier lancement, case de certification à chaque ajout de source, page « Mentions légales ». Aucune playlist intégrée.
@@ -135,6 +140,8 @@ lib/
   ui/legal_screen.dart         Écran d'acceptation et mentions légales
   ui/navigation.dart           Ouverture des contenus, reprise
   ui/reminder_alert.dart       Alerte de rappel
+  services/vault.dart          Chiffrement des identifiants (AES-256-GCM, clé dans le trousseau)
+  services/migrate.dart        Reprise des données de l'ancienne app StreamFlow
   config/brand.dart            Nom, contacts, serveur de licences, forfaits et prix
   services/license.dart        Licence par appareil (MAC, essai, abonnement, mode test)
   ui/subscription_screen.dart  Forfaits, paiement, Mon abonnement, bandeau d'essai, Aide
@@ -142,6 +149,8 @@ lib/
   ui/cast_ui.dart              Choix du Chromecast et bandeau de diffusion
   services/cast.dart           Protocole Chromecast
   ui/widgets/                  Tuile de chaîne, affiche, logo, code parental
+supabase/                    Serveur de licences (tables, fonctions license, stripe-webhook, admin)
+portail/index.html           Portail administrateur de Léandre
 test/parsers_test.dart         Tests des parseurs
 test/features_test.dart        Tests des nouvelles fonctions et des traductions
 ```
@@ -152,14 +161,14 @@ Ajouter une langue : ajouter une colonne dans `l10n/strings.dart` et la langue d
 
 - Dépôt : https://github.com/maloxmusique-ux/Lecteur-IPTV (branche `main`)
 - Compilation automatique (`.github/workflows/build.yml`) : APK Android et version Windows à chaque envoi sur `main`, publiés dans la release « Dernière version ».
-  - Windows : https://github.com/maloxmusique-ux/Lecteur-IPTV/releases/download/derniere-version/StreamFlow-windows.zip
-  - Android : https://github.com/maloxmusique-ux/Lecteur-IPTV/releases/download/derniere-version/StreamFlow-android.apk
-  - Mac : https://github.com/maloxmusique-ux/Lecteur-IPTV/releases/download/derniere-version/StreamFlow-macos.zip
+  - Windows : https://github.com/maloxmusique-ux/Lecteur-IPTV/releases/download/derniere-version/Canalix-windows.zip
+  - Android : https://github.com/maloxmusique-ux/Lecteur-IPTV/releases/download/derniere-version/Canalix-android.apk
+  - Mac : https://github.com/maloxmusique-ux/Lecteur-IPTV/releases/download/derniere-version/Canalix-macos.zip
 - Signature Android : sans secrets, l'APK est signé avec une clé temporaire (désinstaller avant chaque mise à jour). Pour une clé fixe, ajouter dans GitHub (Settings, Secrets and variables, Actions) : `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`.
 
 ## 6. Reste à faire (prochaines étapes proposées)
 
-1. Léandre choisit le nom, puis crée les comptes Stripe et Supabase (`PAIEMENTS.md`). Ensuite : renommer partout (`brand.dart`, identifiant d'app, icônes, textes).
+1. Léandre achète `canalixtv.com`, crée les comptes Stripe et Supabase et choisit son `ADMIN_PASSWORD` (`PAIEMENTS.md`). Publier `CONFIDENTIALITE.md` sur le site.
 1. Léandre ajoute les 3 secrets GitHub de la clé Android (voir `CLE-ANDROID-A-GARDER.txt`).
 1. Version télé Samsung/LG (web, Tizen + webOS) puis Roku. Version Google Play et App Store avec leurs achats intégrés.
 2. Tester sur un vrai téléphone Android, une box Android TV et un vrai Chromecast.

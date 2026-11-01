@@ -1,6 +1,8 @@
+import 'dart:typed_data';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:streamflow/services/vault.dart';
 import 'package:streamflow/l10n/i18n.dart';
 import 'package:streamflow/l10n/strings.dart';
 import 'package:streamflow/models/models.dart';
@@ -212,5 +214,18 @@ void main() {
       expect(expired.canPlay, isFalse);
       expect(expired.trialDaysLeft, 0);
     });
+  });
+
+  test('Vault : chiffre, dechiffre, refuse une mauvaise cle', () {
+    Vault.useKey(Uint8List.fromList(List.filled(32, 7)));
+    const plain = '[{"username":"marc","password":"s3cret"}]';
+    final enc = Vault.encrypt(plain);
+    expect(enc.startsWith('v1:'), isTrue);
+    expect(enc.contains('s3cret'), isFalse);
+    expect(Vault.encrypt(plain), isNot(enc)); // nonce aleatoire
+    expect(Vault.decrypt(enc), plain);
+    expect(Vault.decrypt(plain), plain); // ancien format en clair
+    Vault.useKey(Uint8List.fromList(List.filled(32, 8)));
+    expect(() => Vault.decrypt(enc), throwsA(anything));
   });
 }

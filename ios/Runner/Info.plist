@@ -12,7 +12,7 @@
 		<string>audio</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>StreamFlow cherche les Chromecast de ton réseau pour diffuser sur la télé.</string>
+	<string>Canalix cherche les Chromecast de ton réseau pour diffuser sur la télé.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_googlecast._tcp</string>
@@ -33,7 +33,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>StreamFlow</string>
+	<string>Canalix</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -41,7 +41,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>streamflow</string>
+	<string>Canalix</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

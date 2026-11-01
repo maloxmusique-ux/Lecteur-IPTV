@@ -1,4 +1,4 @@
-# Installer StreamFlow sur ton iPhone (depuis ton Mac)
+# Installer Canalix sur ton iPhone (depuis ton Mac)
 
 Apple ne permet pas d'installer une app iPhone par un simple fichier à télécharger.
 Il faut la compiler une fois sur ton Mac avec Xcode et ton compte développeur Apple (que tu as déjà).
@@ -40,7 +40,7 @@ Pour une mise à jour plus tard : `cd ~/Desktop/Lecteur-IPTV && git pull && flut
    ```
 2. À gauche, clique sur **Runner**, puis l'onglet **Signing & Capabilities**.
 3. **Team** : choisis ton équipe (ton compte développeur).
-4. **Bundle Identifier** : mets un identifiant à toi, par exemple `ca.groupedofi.streamflow`.
+4. **Bundle Identifier** : mets un identifiant à toi, par exemple `com.canalixtv.app`.
 5. En haut de la fenêtre, choisis ton iPhone comme appareil.
 6. De retour dans le Terminal :
    ```bash
@@ -55,4 +55,4 @@ sans câble, on pourra passer par **TestFlight** (dis-le à Claude, il te guider
 
 - Pas d'enregistrement en arrière-plan : Apple l'interdit. Le rattrapage Xtream le remplace très bien.
 - La recherche automatique des Chromecast demande une autorisation spéciale d'Apple. En attendant, entre l'adresse IP du Chromecast à la main (elle est dans l'appli Google Home, réglages de l'appareil).
-- Les enregistrements faits sur l'iPhone sont visibles dans l'app **Fichiers**, dossier StreamFlow.
+- Les enregistrements faits sur l'iPhone sont visibles dans l'app **Fichiers**, dossier Canalix.

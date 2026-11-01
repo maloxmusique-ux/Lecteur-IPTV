@@ -1,4 +1,4 @@
-/// Modeles de donnees de StreamFlow.
+/// Modeles de donnees de Canalix.
 library;
 
 enum ContentType { live, movie, series }

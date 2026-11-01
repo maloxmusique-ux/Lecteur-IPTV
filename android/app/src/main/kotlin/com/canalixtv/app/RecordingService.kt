@@ -1,4 +1,4 @@
-package com.streamflow.streamflow
+package com.canalixtv.app
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -25,7 +25,7 @@ class RecordingService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val title = intent?.getStringExtra("title") ?: "StreamFlow"
+        val title = intent?.getStringExtra("title") ?: "Canalix"
         val text = intent?.getStringExtra("text") ?: ""
         val notification = build(title, text)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -63,14 +63,14 @@ class RecordingService : Service() {
     private fun acquire() {
         if (wake == null) {
             val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-            wake = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "StreamFlow:record").apply {
+            wake = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Canalix:record").apply {
                 setReferenceCounted(false); acquire(6 * 60 * 60 * 1000L)
             }
         }
         if (wifi == null) {
             val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
             @Suppress("DEPRECATION")
-            wifi = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "StreamFlow:record").apply {
+            wifi = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "Canalix:record").apply {
                 setReferenceCounted(false); acquire()
             }
         }

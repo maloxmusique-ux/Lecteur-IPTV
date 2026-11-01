@@ -5,10 +5,10 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = streamflow
+PRODUCT_NAME = Canalix
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.streamflow.streamflow
+PRODUCT_BUNDLE_IDENTIFIER = com.canalixtv.app
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 com.streamflow. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 Canalix. All rights reserved.

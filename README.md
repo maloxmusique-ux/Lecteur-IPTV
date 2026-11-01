@@ -1,4 +1,4 @@
-# StreamFlow
+# Canalix
 
 Lecteur IPTV multiplateforme haute performance (Android, Android TV, iOS, Windows, macOS, Linux), écrit en Flutter avec le moteur **libmpv** via `media_kit`.
 
@@ -72,7 +72,7 @@ Haut/Bas : chaîne précédente/suivante · Gauche/Droite : -10 s/+10 s (aussi d
 
 ## Cadre légal
 
-StreamFlow est un lecteur multimédia, comme VLC. **Il ne contient, ne vend et ne référence aucune chaîne, playlist ou contenu**, et ne fait la promotion d'aucun service.
+Canalix est un lecteur multimédia, comme VLC. **Il ne contient, ne vend et ne référence aucune chaîne, playlist ou contenu**, et ne fait la promotion d'aucun service.
 
 - Au premier lancement, l'utilisateur doit accepter de n'utiliser que des contenus auxquels il a légalement accès.
 - Chaque source ajoutée nécessite de certifier ce droit d'accès.

@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.streamflow" "\0"
-            VALUE "FileDescription", "streamflow" "\0"
+            VALUE "CompanyName", "Canalix" "\0"
+            VALUE "FileDescription", "Canalix IPTV Player" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "streamflow" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.streamflow. All rights reserved." "\0"
-            VALUE "OriginalFilename", "streamflow.exe" "\0"
-            VALUE "ProductName", "streamflow" "\0"
+            VALUE "InternalName", "canalix" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 Canalix. All rights reserved." "\0"
+            VALUE "OriginalFilename", "canalix.exe" "\0"
+            VALUE "ProductName", "Canalix" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

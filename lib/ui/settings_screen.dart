@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../config/brand.dart';
 import '../l10n/i18n.dart';
 import '../models/models.dart';
 import '../services/backup.dart';
@@ -471,7 +472,7 @@ class SettingsView extends StatelessWidget {
           ),
           ListTile(
             leading: const Icon(Icons.info_outline_rounded),
-            title: const Text('StreamFlow'),
+            title: const Text(Brand.fullName),
             subtitle: Text(tr('settings.aboutText')),
           ),
         ],

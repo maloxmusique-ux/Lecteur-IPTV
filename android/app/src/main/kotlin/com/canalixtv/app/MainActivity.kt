@@ -1,4 +1,4 @@
-package com.streamflow.streamflow
+package com.canalixtv.app
 
 import android.app.PictureInPictureParams
 import android.content.Intent
@@ -32,7 +32,7 @@ class MainActivity : FlutterActivity() {
                         "multicastLock" -> {
                             val wm = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
                             if (call.arguments as? Boolean == true) {
-                                if (mcLock == null) mcLock = wm.createMulticastLock("StreamFlow:cast").apply {
+                                if (mcLock == null) mcLock = wm.createMulticastLock("Canalix:cast").apply {
                                     setReferenceCounted(false); acquire()
                                 }
                             } else {

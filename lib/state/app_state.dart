@@ -8,6 +8,7 @@ import '../l10n/i18n.dart';
 import '../models/models.dart';
 import '../models/profile.dart';
 import '../services/repository.dart';
+import '../services/vault.dart';
 import '../services/xtream_api.dart';
 import 'settings.dart';
 
@@ -83,12 +84,19 @@ class AppState extends ChangeNotifier {
 
   void _loadSourcesAndProfiles() {
     final raw = _prefs.getString('sources');
-    sources = raw == null
-        ? []
-        : [
-            for (final e in jsonDecode(raw) as List)
-              Source.fromJson(e as Map<String, dynamic>),
-          ];
+    sources = [];
+    if (raw != null) {
+      try {
+        sources = [
+          for (final e in jsonDecode(Vault.decrypt(raw)) as List)
+            Source.fromJson(e as Map<String, dynamic>),
+        ];
+        // Ancienne version en clair : on chiffre tout de suite.
+        if (!Vault.isEncrypted(raw)) unawaited(_saveSources());
+      } catch (e) {
+        debugPrint('Sources illisibles : $e');
+      }
+    }
     final activeId = _prefs.getString('active');
     active = sources.isEmpty
         ? null
@@ -219,8 +227,9 @@ class AppState extends ChangeNotifier {
     await _loadActive();
   }
 
-  Future<void> _saveSources() => _prefs.setString(
-      'sources', jsonEncode([for (final s in sources) s.toJson()]));
+  /// Les sources contiennent les identifiants : toujours chiffrees.
+  Future<void> _saveSources() => _prefs.setString('sources',
+      Vault.encrypt(jsonEncode([for (final s in sources) s.toJson()])));
 
   // --------------------------------------------------------------- Loading
 

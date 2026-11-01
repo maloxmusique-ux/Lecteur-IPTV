@@ -3,12 +3,17 @@ import 'dart:typed_data';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'vault.dart';
+
 /// Sauvegarde et restauration de toutes les donnees de l'application :
 /// sources, reglages, profils, favoris, reprise, rappels, enregistrements.
 class Backup {
   Backup._();
 
-  static const _magic = 'StreamFlow-backup';
+  static const _magic = 'Canalix-backup';
+
+  /// Ancien format (avant le changement de nom), toujours accepte.
+  static const _oldMagic = 'StreamFlow-backup';
 
   static Future<Uint8List> export() async {
     final prefs = await SharedPreferences.getInstance();
@@ -24,7 +29,9 @@ class Backup {
       } else if (v is double) {
         data[k] = {'d': v};
       } else if (v is String) {
-        data[k] = {'s': v};
+        // Les identifiants sont dechiffres pour pouvoir etre restaures
+        // sur un autre appareil (qui a une autre cle).
+        data[k] = {'s': k == 'sources' ? Vault.decrypt(v) : v};
       } else if (v is List) {
         data[k] = {'l': v.map((e) => '$e').toList()};
       }
@@ -41,7 +48,7 @@ class Backup {
   /// Restaure une sauvegarde. Leve une exception si le fichier est invalide.
   static Future<void> restore(Uint8List bytes) async {
     final j = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
-    if (j['format'] != _magic) throw const FormatException('format');
+    if (j['format'] != _magic && j['format'] != _oldMagic) throw const FormatException('format');
     final data = j['prefs'] as Map<String, dynamic>;
     final prefs = await SharedPreferences.getInstance();
     for (final k in prefs.getKeys().toList()) {
@@ -55,7 +62,11 @@ class Backup {
       if (v.containsKey('d')) {
         await prefs.setDouble(e.key, (v['d'] as num).toDouble());
       }
-      if (v.containsKey('s')) await prefs.setString(e.key, v['s'] as String);
+      if (v.containsKey('s')) {
+        final str = v['s'] as String;
+        await prefs.setString(
+            e.key, e.key == 'sources' && !Vault.isEncrypted(str) ? Vault.encrypt(str) : str);
+      }
       if (v.containsKey('l')) {
         await prefs.setStringList(e.key, List<String>.from(v['l'] as List));
       }
@@ -65,6 +76,6 @@ class Backup {
   static String fileName() {
     final d = DateTime.now();
     String two(int v) => v.toString().padLeft(2, '0');
-    return 'StreamFlow-sauvegarde-${d.year}-${two(d.month)}-${two(d.day)}.json';
+    return 'Canalix-sauvegarde-${d.year}-${two(d.month)}-${two(d.day)}.json';
   }
 }

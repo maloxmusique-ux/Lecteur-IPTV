@@ -1,4 +1,4 @@
-# Compile StreamFlow pour Android et Windows a chaque modification sur main.
+# Compile Canalix pour Android et Windows a chaque modification sur main.
 # Les fichiers prets a installer sont publies dans la release "Derniere version"
 # du depot (onglet Releases), facile a ouvrir depuis un telephone.
 name: Compilation
@@ -72,11 +72,11 @@ jobs:
       - run: flutter pub get
       - name: Compiler l'APK
         run: flutter build apk --release --build-number=${{ github.run_number }} ${{ env.LICENSE_DEFINES }}
-      - run: mv build/app/outputs/flutter-apk/app-release.apk StreamFlow-android.apk
+      - run: mv build/app/outputs/flutter-apk/app-release.apk Canalix-android.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: StreamFlow-android
-          path: StreamFlow-android.apk
+          name: Canalix-android
+          path: Canalix-android.apk
 
   windows:
     name: Windows
@@ -94,11 +94,11 @@ jobs:
         run: flutter build windows --release --build-number=${{ github.run_number }} ${{ env.LICENSE_DEFINES }}
       - name: Creer le zip
         shell: pwsh
-        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath StreamFlow-windows.zip
+        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath Canalix-windows.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: StreamFlow-windows
-          path: StreamFlow-windows.zip
+          name: Canalix-windows
+          path: Canalix-windows.zip
 
   apple:
     name: Mac et iPhone
@@ -117,15 +117,15 @@ jobs:
       - name: Creer le zip Mac
         run: |
           cd build/macos/Build/Products/Release
-          ditto -c -k --sequesterRsrc --keepParent streamflow.app "$GITHUB_WORKSPACE/StreamFlow-macos.zip"
+          ditto -c -k --sequesterRsrc --keepParent Canalix.app "$GITHUB_WORKSPACE/Canalix-macos.zip"
       # Verification que l'app iPhone compile (sans signature : l'installation
       # se fait depuis Xcode sur le Mac avec le compte developpeur Apple).
       - name: Verifier la compilation iPhone
         run: flutter build ios --release --no-codesign --build-number=${{ github.run_number }} ${{ env.LICENSE_DEFINES }}
       - uses: actions/upload-artifact@v4
         with:
-          name: StreamFlow-macos
-          path: StreamFlow-macos.zip
+          name: Canalix-macos
+          path: Canalix-macos.zip
 
   publier:
     name: Publier la derniere version
@@ -144,12 +144,12 @@ jobs:
         run: |
           gh release delete derniere-version --yes --cleanup-tag || true
           gh release create derniere-version \
-            $(ls StreamFlow-*) \
+            $(ls Canalix-*) \
             --target "${{ github.sha }}" \
             --title "Dernière version (compilation n° ${{ github.run_number }})" \
             --notes "Compilée automatiquement depuis le commit ${{ github.sha }}.
 
-          - **Android / Android TV** : télécharge \`StreamFlow-android.apk\` et ouvre-le pour l'installer.
-          - **Windows** : télécharge \`StreamFlow-windows.zip\`, décompresse-le, puis lance \`streamflow.exe\`.
-          - **Mac** : télécharge \`StreamFlow-macos.zip\`, décompresse-le, puis clic droit sur StreamFlow et Ouvrir." \
+          - **Android / Android TV** : télécharge \`Canalix-android.apk\` et ouvre-le pour l'installer.
+          - **Windows** : télécharge \`Canalix-windows.zip\`, décompresse-le, puis lance \`canalix.exe\`.
+          - **Mac** : télécharge \`Canalix-macos.zip\`, décompresse-le, puis clic droit sur Canalix et Ouvrir." \
             --prerelease

@@ -26,18 +26,21 @@ Compte environ 1 heure, une seule fois. Claude peut te guider écran par écran.
 ## 2. Supabase (la liste des appareils et des abonnements)
 
 1. Crée un projet sur https://supabase.com (région Canada si possible).
-2. **SQL Editor** : colle et exécute le contenu de `supabase/migrations/20261101000000_licences.sql`.
+2. **SQL Editor** : colle et exécute le contenu de `supabase/migrations/20261101000000_licences.sql`,
+   puis celui de `supabase/migrations/20261102000000_codes.sql` (codes cadeaux).
 3. **Edge Functions > Secrets**, ajoute :
    - `STRIPE_SECRET_KEY` : clé secrète Stripe (`sk_live_...`)
    - `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_QUARTERLY`, `STRIPE_PRICE_SEMIANNUAL`, `STRIPE_PRICE_YEARLY`, `STRIPE_PRICE_LIFETIME` : les identifiants `price_...`
    - `APP_NAME` : le nom de l'app
    - `STRIPE_TAX` : `1` si Stripe Tax est activé
+   - `ADMIN_PASSWORD` : le mot de passe de **ton portail** (au moins 12 caractères, à ne donner à personne)
 4. Déploie les fonctions (sur le Mac ou le PC, avec la CLI Supabase) :
    ```bash
    npx supabase login
    npx supabase link --project-ref TON_PROJET
    npx supabase functions deploy license
    npx supabase functions deploy stripe-webhook
+   npx supabase functions deploy admin
    ```
 
 ## 3. Relier Stripe au serveur (webhook)
@@ -59,8 +62,19 @@ La prochaine compilation sortira avec les vrais paiements.
 
 ## Au quotidien
 
-- **Voir les clients** : Supabase > Table editor > vue `dashboard` (adresse MAC, forfait, expiration, total payé).
-- **Offrir un accès** : table `licenses`, ajoute une ligne avec l'adresse MAC, `plan = lifetime`,
-  `status = active`, `source = gift`, et une note.
+Ouvre **ton portail** : le fichier `portail/index.html` (une copie est dans ton dossier IPTV).
+Double-clique dessus, entre l'adresse du projet Supabase et ton `ADMIN_PASSWORD`.
+
+- **Créer des codes cadeaux** : choisis 1, 3, 6, 12 mois ou à vie, le nombre de codes, et combien
+  de personnes peuvent utiliser chaque code. Donne le code : la personne l'entre dans l'app
+  avec « J'ai un code ». Un accès offert ne se renouvelle jamais et ne coûte rien à la personne.
+- **Activer un appareil directement** : entre l'adresse MAC affichée dans l'app
+  (Réglages > Abonnement) et la durée. L'appareil se débloque en quelques secondes.
+- **Retirer un accès offert** ou **désactiver un code** : boutons dans les listes.
+- **Voir les appareils et les revenus** : en haut du portail.
+
+Le portail ne demande aucun compte client : tout passe par l'adresse MAC ou le code.
+
+Sans serveur, le bouton « Essayer en mode démo » montre le portail avec des données fictives.
 - **Rembourser** : depuis Stripe (Paiements > Rembourser). Annule aussi l'abonnement dans Stripe si besoin.
 - **Revenus** : tableau de bord Stripe.

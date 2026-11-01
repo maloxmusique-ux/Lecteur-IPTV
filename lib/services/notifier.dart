@@ -37,8 +37,8 @@ class Notifier {
           macOS: DarwinInitializationSettings(),
           linux: LinuxInitializationSettings(defaultActionName: 'Ouvrir'),
           windows: WindowsInitializationSettings(
-            appName: 'StreamFlow',
-            appUserModelId: 'StreamFlow.StreamFlow.Player',
+            appName: 'Canalix',
+            appUserModelId: 'Canalix.Canalix.Player',
             guid: '7c1f3a52-5d1e-4b8e-9a6e-3f0c2d9b8e41',
           ),
         ),

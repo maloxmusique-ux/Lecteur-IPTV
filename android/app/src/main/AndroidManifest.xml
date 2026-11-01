@@ -16,7 +16,7 @@
     <uses-feature android:name="android.hardware.touchscreen" android:required="false"/>
     <uses-feature android:name="android.software.leanback" android:required="false"/>
     <application
-        android:label="StreamFlow"
+        android:label="Canalix"
         android:usesCleartextTraffic="true"
         android:banner="@drawable/banner"
         android:name="${applicationName}"

@@ -71,3 +71,40 @@ export async function saveSubscription(sub: Stripe.Subscription, mac?: string) {
     updated_at: new Date().toISOString(),
   });
 }
+
+/** Forfait correspondant a une duree offerte. */
+export function planForMonths(months: number): string {
+  return months === 0 ? "lifetime" : months === 1 ? "monthly" : months === 3 ? "quarterly"
+    : months === 6 ? "semiannual" : months === 12 ? "yearly" : "monthly";
+}
+
+/**
+ * Donne un acces gratuit a un appareil (code cadeau ou activation par le portail).
+ * Une duree s'ajoute a l'acces offert deja en cours. Renvoie une erreur si
+ * l'appareil a un abonnement payant qui se renouvelle (a annuler d'abord).
+ */
+export async function grantAccess(mac: string, months: number, note: string | null): Promise<string | null> {
+  const { data: l } = await db.from("licenses").select("*").eq("mac", mac).maybeSingle();
+  const now = new Date();
+  const active = l && l.status !== "expired" && (l.expires_at === null || new Date(l.expires_at) > now);
+  if (active && l.source === "stripe" && l.auto_renew) return "already_subscribed";
+  if (active && l.plan === "lifetime") return "already_lifetime";
+  let expires: string | null = null;
+  if (months > 0) {
+    const base = active && l.expires_at ? new Date(l.expires_at) : now;
+    base.setMonth(base.getMonth() + months);
+    expires = base.toISOString();
+  }
+  await db.from("licenses").upsert({
+    mac,
+    plan: planForMonths(months),
+    status: "active",
+    expires_at: expires,
+    auto_renew: false,
+    source: "gift",
+    stripe_subscription_id: null,
+    note,
+    updated_at: now.toISOString(),
+  });
+  return null;
+}

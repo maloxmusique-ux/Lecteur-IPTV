@@ -229,11 +229,11 @@ class RecordingService extends ChangeNotifier {
       d = Directory(settings.recFolder);
     } else if (Platform.isWindows) {
       d = Directory(
-          '${Platform.environment['USERPROFILE'] ?? '.'}\\Videos\\StreamFlow');
+          '${Platform.environment['USERPROFILE'] ?? '.'}\\Videos\\Canalix');
     } else if (Platform.isMacOS) {
-      d = Directory('${Platform.environment['HOME']}/Movies/StreamFlow');
+      d = Directory('${Platform.environment['HOME']}/Movies/Canalix');
     } else if (Platform.isLinux) {
-      d = Directory('${Platform.environment['HOME']}/Videos/StreamFlow');
+      d = Directory('${Platform.environment['HOME']}/Videos/Canalix');
     } else if (Platform.isAndroid) {
       final ext = await getExternalStorageDirectory();
       d = Directory(

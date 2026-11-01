@@ -1,10 +1,10 @@
 // Licence d'un appareil : statut, paiement, annulation, reactivation.
 // Appelee par l'app avec { action, device, secret, platform, plan }.
-import { cors, db, json, PLANS, priceFor, sha256, stripe } from "../_shared/common.ts";
+import { cors, db, grantAccess, json, PLANS, priceFor, sha256, stripe } from "../_shared/common.ts";
 
 const MAC = /^[0-9A-F]{2}(:[0-9A-F]{2}){5}$/;
 const TRIAL_DAYS = Number(Deno.env.get("TRIAL_DAYS") ?? "7");
-const APP_NAME = Deno.env.get("APP_NAME") ?? "StreamFlow";
+const APP_NAME = Deno.env.get("APP_NAME") ?? "Canalix";
 
 function page(title: string, text: string): Response {
   const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8">
@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { action, device, secret, platform, plan } = await req.json();
+    const { action, device, secret, platform, plan, code: rawCode } = await req.json();
     const mac = String(device ?? "").toUpperCase();
     if (!MAC.test(mac) || typeof secret !== "string" || secret.length < 16) {
       return json({ error: "invalid device" }, 400);
@@ -117,6 +117,21 @@ Deno.serve(async (req) => {
           updated_at: new Date().toISOString(),
         }).eq("mac", mac);
         void sub;
+        return json(await status(mac));
+      }
+
+      case "redeem": {
+        // Code cadeau : "CANALIX-ABCD-EFGH" (tirets et espaces ignores).
+        const code = String(rawCode ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+        const { data: c } = await db.from("promo_codes").select("*").eq("code", code).maybeSingle();
+        if (!c || c.disabled) return json({ error: "invalid_code" }, 400);
+        const { data: used } = await db.from("redemptions").select("id").eq("code", code).eq("mac", mac).maybeSingle();
+        if (used) return json({ error: "already_redeemed" }, 400);
+        if (c.uses >= c.max_uses) return json({ error: "used" }, 400);
+        const err = await grantAccess(mac, c.months, c.note ? `Code ${code} (${c.note})` : `Code ${code}`);
+        if (err) return json({ error: err }, 400);
+        await db.from("redemptions").insert({ code, mac });
+        await db.from("promo_codes").update({ uses: c.uses + 1 }).eq("code", code);
         return json(await status(mac));
       }
 

@@ -9,6 +9,8 @@ import 'package:provider/provider.dart';
 import 'l10n/i18n.dart';
 import 'player/player_engine.dart';
 import 'services/license.dart';
+import 'services/migrate.dart';
+import 'services/vault.dart';
 import 'services/recorder.dart';
 import 'services/reminders.dart';
 import 'state/app_state.dart';
@@ -24,6 +26,8 @@ final navigatorKey = GlobalKey<NavigatorState>();
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
+  await migrateFromStreamFlow();
+  await Vault.init();
 
   // Cache d'images en memoire plus genereux (logos de chaines).
   PaintingBinding.instance.imageCache
@@ -53,13 +57,13 @@ Future<void> main() async {
         ChangeNotifierProvider.value(value: recorder),
         ChangeNotifierProvider.value(value: license),
       ],
-      child: const StreamFlowApp(),
+      child: const CanalixApp(),
     ),
   );
 }
 
-class StreamFlowApp extends StatelessWidget {
-  const StreamFlowApp({super.key});
+class CanalixApp extends StatelessWidget {
+  const CanalixApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -73,7 +77,7 @@ class StreamFlowApp extends StatelessWidget {
     );
     return MaterialApp(
       navigatorKey: navigatorKey,
-      title: 'StreamFlow',
+      title: 'Canalix',
       debugShowCheckedModeBanner: false,
       locale: Locale(lang),
       supportedLocales: [for (final l in kLanguages.keys) Locale(l)],

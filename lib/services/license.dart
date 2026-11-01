@@ -283,6 +283,27 @@ class LicenseService extends ChangeNotifier {
     }
   }
 
+  /// Utilise un code cadeau. Renvoie null si c'est bon, sinon la cle
+  /// de traduction de l'erreur.
+  Future<String?> redeem(String code) async {
+    loading = true;
+    notifyListeners();
+    try {
+      _set(LicenseInfo.fromJson(await _call('redeem', {'code': code})));
+      return null;
+    } catch (e) {
+      final m = '$e';
+      for (final k in const ['invalid_code', 'used', 'already_redeemed',
+          'already_subscribed', 'already_lifetime']) {
+        if (m.contains(k)) return 'code_err_$k';
+      }
+      return 'code_err_network';
+    } finally {
+      loading = false;
+      notifyListeners();
+    }
+  }
+
   /// Attend la confirmation du paiement (apres la page de paiement).
   Future<bool> waitForActivation(
       {Duration timeout = const Duration(minutes: 15)}) async {
@@ -322,6 +343,7 @@ class LicenseService extends ChangeNotifier {
             ? DateTime(now.year, now.month + plan.months, now.day).toIso8601String()
             : null;
         s['autoRenew'] = plan.recurring;
+        s['source'] = 'test';
         (s['payments'] as List).insert(0, {
           'date': now.toIso8601String(),
           'amount': plan.priceCents,
@@ -333,6 +355,28 @@ class LicenseService extends ChangeNotifier {
         s['autoRenew'] = false;
       case 'resume':
         if (s['plan'] != null) s['autoRenew'] = true;
+      case 'redeem':
+        // Codes d'essai : TEST-1M, TEST-12M, TEST-VIE.
+        final code = '${extra['code']}'.toUpperCase().replaceAll(RegExp('[^A-Z0-9]'), '');
+        const months = {'TEST1M': 1, 'TEST12M': 12, 'TESTVIE': 0};
+        final m = months[code];
+        if (m == null) throw Exception('invalid_code');
+        final used = (s['codes'] as List?)?.cast<String>() ?? <String>[];
+        if (used.contains(code)) throw Exception('already_redeemed');
+        if (s['plan'] == 'lifetime') throw Exception('already_lifetime');
+        if (s['autoRenew'] == true) throw Exception('already_subscribed');
+        s['codes'] = [...used, code];
+        if (m == 0) {
+          s['plan'] = 'lifetime';
+          s['expiresAt'] = null;
+        } else {
+          final cur = s['expiresAt'] == null ? null : DateTime.parse(s['expiresAt'] as String);
+          final base = cur != null && cur.isAfter(now) ? cur : now;
+          s['plan'] = m == 1 ? 'monthly' : 'yearly';
+          s['expiresAt'] = DateTime(base.year, base.month + m, base.day).toIso8601String();
+        }
+        s['autoRenew'] = false;
+        s['source'] = 'gift';
       case 'reset':
         s = {
           'trialEndsAt': now
@@ -354,7 +398,7 @@ class LicenseService extends ChangeNotifier {
       'plan': plan,
       'expiresAt': s['expiresAt'],
       'autoRenew': s['autoRenew'] ?? false,
-      'source': 'test',
+      'source': s['source'] ?? 'test',
       'payments': s['payments'],
     };
   }

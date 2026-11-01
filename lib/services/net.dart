@@ -4,7 +4,7 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
-const defaultUserAgent = 'StreamFlow/1.0 (Linux; libmpv)';
+const defaultUserAgent = 'Canalix/1.0 (libmpv)';
 
 /// Telecharge une ressource et la renvoie en texte UTF-8.
 /// Gere automatiquement les fichiers gzip (.gz), frequents pour les EPG.
