@@ -18,6 +18,7 @@ import 'programme_sheet.dart';
 import 'recordings_screen.dart';
 import 'settings_screen.dart';
 import 'sources_screen.dart';
+import 'subscription_screen.dart';
 import 'widgets/channel_logo.dart';
 import 'widgets/channel_tile.dart';
 import 'widgets/pin_dialog.dart';
@@ -95,9 +96,20 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!tabs.contains(_tab)) _tab = wide ? HomeTab.mylist : HomeTab.more;
     final index = tabs.indexOf(_tab);
 
-    final body = IndexedStack(
-      index: index,
-      children: [for (final t in tabs) _view(t)],
+    final body = Column(
+      children: [
+        const SafeArea(bottom: false, child: TrialBanner()),
+        Expanded(
+          child: MediaQuery.removePadding(
+            context: context,
+            removeTop: true,
+            child: IndexedStack(
+              index: index,
+              children: [for (final t in tabs) _view(t)],
+            ),
+          ),
+        ),
+      ],
     );
 
     Widget icon(HomeTab t, bool selected) {

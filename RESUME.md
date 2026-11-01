@@ -77,6 +77,21 @@ Choix faits ensemble :
 - **Mac et iPhone** : réglages iOS (réseau local, Bonjour, Fichiers, langues), droits macOS (réseau, dossiers). La compilation GitHub produit maintenant `StreamFlow-macos.zip` et vérifie que l'app iPhone compile. Guide pas à pas : `INSTALLER-IPHONE.md` (Xcode sur le Mac). La publication Windows/Android n'est jamais bloquée par un échec Apple.
 - Échap = retour en arrière sur ordinateur.
 
+### Ajouté le 1er novembre 2026 (version 4 : abonnements)
+Modèle choisi par Léandre : **app gratuite à télécharger, accès payant par appareil, aucune chaîne fournie** (comme IBO Player / TiviMate).
+- **Essai gratuit de 7 jours** au premier lancement, sans carte. Bandeau « Essai gratuit : encore X jours » en haut. Après l'essai, la lecture ouvre l'écran des forfaits (les menus restent accessibles).
+- **Forfaits (CAD)** : Mensuel 2,99 $, 3 mois 7,99 $, 6 mois 12,99 $, Annuel 19,99 $ (mis en avant), À vie 39,99 $. Renouvellement automatique pour 1 à 12 mois.
+- **Un abonnement = un appareil.** L'app génère une « adresse MAC » unique (les vraies MAC ne sont plus lisibles sur iPhone/Android) + un secret privé, gardés dans `device.json` (hors sauvegardes).
+- **Annulation très visible** : sur l'écran des forfaits (« Sans engagement », « Annulable à tout moment en 1 clic »), et dans Réglages > Mon abonnement avec un gros bouton rouge, confirmation claire, date de fin d'accès, bouton « Réactiver ». Reçus listés.
+- **Aide et contact** : 7 questions fréquentes + bouton « Nous écrire » (courriel prérempli avec l'adresse MAC).
+- **Paiement** : Stripe Checkout ouvert dans l'app (navigateur intégré sur mobile), avec code QR pour payer depuis un téléphone (télés). Apple/Google : leur facturation obligatoire (à faire lors de la publication dans les boutiques).
+- **Serveur** : `supabase/` (tables `devices`, `licenses`, `payments`, vue `dashboard` ; fonctions `license` et `stripe-webhook`). Guide complet : `PAIEMENTS.md`.
+- **Mode test** tant que les variables GitHub `LICENSE_API` et `LICENSE_KEY` ne sont pas définies : paiements simulés, outils « Recommencer / Terminer l'essai » dans Mon abonnement.
+- Nom, courriel de support et site : un seul fichier, `lib/config/brand.dart`.
+
+### Nom de l'app (à décider)
+« StreamFlow » est déjà pris par au moins 3 apps IPTV (App Store et Android). Noms proposés, sans app IPTV trouvée : Zapix, Ondo, Canalix, Plavo, Zentra, Kavio, Tivano, Vexo, Zapora (+ « IPTV Player » derrière pour les recherches). Léandre réfléchit.
+
 ### Cadre légal
 - Écran d'acceptation obligatoire au premier lancement, case de certification à chaque ajout de source, page « Mentions légales ». Aucune playlist intégrée.
 
@@ -120,6 +135,9 @@ lib/
   ui/legal_screen.dart         Écran d'acceptation et mentions légales
   ui/navigation.dart           Ouverture des contenus, reprise
   ui/reminder_alert.dart       Alerte de rappel
+  config/brand.dart            Nom, contacts, serveur de licences, forfaits et prix
+  services/license.dart        Licence par appareil (MAC, essai, abonnement, mode test)
+  ui/subscription_screen.dart  Forfaits, paiement, Mon abonnement, bandeau d'essai, Aide
   ui/details_screen.dart       Fiche film (et en-tête commun des fiches)
   ui/cast_ui.dart              Choix du Chromecast et bandeau de diffusion
   services/cast.dart           Protocole Chromecast
@@ -141,7 +159,9 @@ Ajouter une langue : ajouter une colonne dans `l10n/strings.dart` et la langue d
 
 ## 6. Reste à faire (prochaines étapes proposées)
 
+1. Léandre choisit le nom, puis crée les comptes Stripe et Supabase (`PAIEMENTS.md`). Ensuite : renommer partout (`brand.dart`, identifiant d'app, icônes, textes).
 1. Léandre ajoute les 3 secrets GitHub de la clé Android (voir `CLE-ANDROID-A-GARDER.txt`).
+1. Version télé Samsung/LG (web, Tizen + webOS) puis Roku. Version Google Play et App Store avec leurs achats intégrés.
 2. Tester sur un vrai téléphone Android, une box Android TV et un vrai Chromecast.
 3. Installer sur l'iPhone depuis le Mac (`INSTALLER-IPHONE.md`), puis éventuellement TestFlight.
 4. Idées : AirPlay sur iPhone, synchronisation entre appareils, publication sur Google Play.

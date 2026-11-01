@@ -9,6 +9,7 @@ import '../player/player_engine.dart';
 import '../services/net.dart';
 import '../state/app_state.dart';
 import 'navigation.dart';
+import 'subscription_screen.dart';
 import 'widgets/channel_logo.dart';
 
 Future<void> openMultiView(BuildContext context, {Channel? initial}) async {
@@ -91,6 +92,7 @@ class _MultiViewScreenState extends State<MultiViewScreen> {
   }
 
   Future<void> _pick() async {
+    if (!await ensureLicensed(context) || !mounted) return;
     final app = context.read<AppState>();
     final all = app.visibleItems(ContentType.live).toList();
     final fav = all.where(app.isFavorite).toList();

@@ -17,6 +17,9 @@ concurrency:
 
 env:
   FLUTTER_VERSION: "3.47.9"
+  # Serveur de licences (variables GitHub "LICENSE_API" et "LICENSE_KEY").
+  # Vides = mode test (paiements simules).
+  LICENSE_DEFINES: --dart-define=LICENSE_API=${{ vars.LICENSE_API }} --dart-define=LICENSE_KEY=${{ vars.LICENSE_KEY }}
 
 jobs:
   test:
@@ -68,7 +71,7 @@ jobs:
 
       - run: flutter pub get
       - name: Compiler l'APK
-        run: flutter build apk --release --build-number=${{ github.run_number }}
+        run: flutter build apk --release --build-number=${{ github.run_number }} ${{ env.LICENSE_DEFINES }}
       - run: mv build/app/outputs/flutter-apk/app-release.apk StreamFlow-android.apk
       - uses: actions/upload-artifact@v4
         with:
@@ -88,7 +91,7 @@ jobs:
           cache: true
       - run: flutter pub get
       - name: Compiler pour Windows
-        run: flutter build windows --release --build-number=${{ github.run_number }}
+        run: flutter build windows --release --build-number=${{ github.run_number }} ${{ env.LICENSE_DEFINES }}
       - name: Creer le zip
         shell: pwsh
         run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath StreamFlow-windows.zip
@@ -110,7 +113,7 @@ jobs:
           cache: true
       - run: flutter pub get
       - name: Compiler pour Mac
-        run: flutter build macos --release --build-number=${{ github.run_number }}
+        run: flutter build macos --release --build-number=${{ github.run_number }} ${{ env.LICENSE_DEFINES }}
       - name: Creer le zip Mac
         run: |
           cd build/macos/Build/Products/Release
@@ -118,7 +121,7 @@ jobs:
       # Verification que l'app iPhone compile (sans signature : l'installation
       # se fait depuis Xcode sur le Mac avec le compte developpeur Apple).
       - name: Verifier la compilation iPhone
-        run: flutter build ios --release --no-codesign --build-number=${{ github.run_number }}
+        run: flutter build ios --release --no-codesign --build-number=${{ github.run_number }} ${{ env.LICENSE_DEFINES }}
       - uses: actions/upload-artifact@v4
         with:
           name: StreamFlow-macos

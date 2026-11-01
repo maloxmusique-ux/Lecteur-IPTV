@@ -14,6 +14,8 @@ import '../state/settings.dart';
 import 'legal_screen.dart';
 import 'navigation.dart';
 import 'profiles_screen.dart';
+import 'subscription_screen.dart';
+import '../services/license.dart';
 import 'widgets/pin_dialog.dart';
 
 /// Langues proposees pour l'audio et les sous-titres (code -> alias mpv).
@@ -144,6 +146,35 @@ class SettingsView extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.only(bottom: 32),
         children: [
+          // ------------------------------------------------- Abonnement
+          section(tr('sub.title')),
+          Builder(builder: (context) {
+            final lic = context.watch<LicenseService>();
+            final i = lic.info;
+            return ListTile(
+              leading: const Icon(Icons.workspace_premium_rounded),
+              title: Text(tr('sub.title')),
+              subtitle: Text(switch (i.status) {
+                LicenseStatus.trial => tr('sub.trial', [i.trialDaysLeft]),
+                LicenseStatus.active => i.plan == null
+                    ? tr('sub.active')
+                    : '${tr('sub.active')} · ${planName(i.plan!)}',
+                LicenseStatus.expired => tr('sub.expired'),
+              }),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const SubscriptionScreen())),
+            );
+          }),
+          ListTile(
+            leading: const Icon(Icons.help_outline_rounded),
+            title: Text(tr('help.title')),
+            subtitle: Text(tr('help.subtitle')),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => Navigator.of(context)
+                .push(MaterialPageRoute(builder: (_) => const HelpScreen())),
+          ),
+
           // ------------------------------------------------- Langue
           section(tr('settings.general')),
           ListTile(

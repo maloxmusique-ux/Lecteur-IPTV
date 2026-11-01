@@ -8,6 +8,7 @@ import '../state/app_state.dart';
 import 'details_screen.dart';
 import 'player_screen.dart';
 import 'series_screen.dart';
+import 'subscription_screen.dart';
 import 'widgets/pin_dialog.dart';
 
 const double kWideBreakpoint = 900;
@@ -43,6 +44,7 @@ Future<void> openItem(
   }
 
   if (c.type == ContentType.live && wide) {
+    if (!await ensureLicensed(context) || !context.mounted) return;
     // Desktop/TV : 1er clic = apercu, 2e clic = plein ecran (sans recharger).
     if (engine.current?.id == c.id) {
       Navigator.of(context).push(playerRoute(stopOnExit: false));
@@ -59,6 +61,7 @@ Future<void> openItem(
 /// Lance la lecture en plein ecran, avec proposition de reprise des films.
 Future<void> playFullscreen(BuildContext context, Channel c,
     List<Channel> queue, {bool askResume = true, Duration? startAt}) async {
+  if (!await ensureLicensed(context) || !context.mounted) return;
   final engine = context.read<PlayerEngine>();
   final app = context.read<AppState>();
   if (askResume && c.type != ContentType.live) {

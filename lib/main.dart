@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import 'l10n/i18n.dart';
 import 'player/player_engine.dart';
+import 'services/license.dart';
 import 'services/recorder.dart';
 import 'services/reminders.dart';
 import 'state/app_state.dart';
@@ -37,6 +38,8 @@ Future<void> main() async {
   await reminders.init();
   final recorder = RecordingService(settings);
   await recorder.init();
+  final license = LicenseService();
+  await license.init();
   final engine = PlayerEngine(settings);
   engine.onProgress = app.saveProgress;
 
@@ -48,6 +51,7 @@ Future<void> main() async {
         ChangeNotifierProvider.value(value: engine),
         ChangeNotifierProvider.value(value: reminders),
         ChangeNotifierProvider.value(value: recorder),
+        ChangeNotifierProvider.value(value: license),
       ],
       child: const StreamFlowApp(),
     ),

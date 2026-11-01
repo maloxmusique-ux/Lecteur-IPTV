@@ -5,7 +5,9 @@ import 'package:streamflow/l10n/i18n.dart';
 import 'package:streamflow/l10n/strings.dart';
 import 'package:streamflow/models/models.dart';
 import 'package:streamflow/models/profile.dart';
+import 'package:streamflow/config/brand.dart';
 import 'package:streamflow/services/cast.dart';
+import 'package:streamflow/services/license.dart';
 import 'package:streamflow/services/epg_parser.dart';
 import 'package:streamflow/services/xtream_api.dart';
 import 'package:streamflow/state/app_state.dart';
@@ -181,5 +183,34 @@ void main() {
     final epg = parseXmltv(xml,
         nowMs: now, wantedIds: {'a.fr'}, wantedNames: {'chaineb'});
     expect(epg.programmes.keys.toSet(), {'a.fr', 'b.fr'});
+  });
+
+  group('Abonnement', () {
+    test('prix et economies des forfaits', () {
+      expect(Plan.monthly.price, '2,99 \$');
+      expect(Plan.yearly.monthlyEquivalent, closeTo(1.67, 0.01));
+      expect(Plan.lifetime.recurring, isFalse);
+      expect(Plan.byName('quarterly'), Plan.quarterly);
+    });
+
+    test('statut de licence lu depuis le serveur', () {
+      final i = LicenseInfo.fromJson({
+        'status': 'active',
+        'trialEndsAt': '2026-11-08T00:00:00Z',
+        'plan': 'yearly',
+        'expiresAt': '2027-11-01T00:00:00Z',
+        'autoRenew': true,
+        'source': 'stripe',
+        'payments': [
+          {'date': '2026-11-01T00:00:00Z', 'amount': 1999, 'currency': 'cad', 'plan': 'yearly'},
+        ],
+      });
+      expect(i.canPlay, isTrue);
+      expect(i.plan, Plan.yearly);
+      expect(i.payments.single.amountCents, 1999);
+      final expired = LicenseInfo.fromJson({'status': 'expired', 'trialEndsAt': '2020-01-01T00:00:00Z'});
+      expect(expired.canPlay, isFalse);
+      expect(expired.trialDaysLeft, 0);
+    });
   });
 }

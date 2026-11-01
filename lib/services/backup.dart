@@ -14,6 +14,8 @@ class Backup {
     final prefs = await SharedPreferences.getInstance();
     final data = <String, dynamic>{};
     for (final k in prefs.getKeys()) {
+      // La licence est liee a l'appareil : jamais copiee ailleurs.
+      if (k.startsWith('license_')) continue;
       final v = prefs.get(k);
       if (v is bool) {
         data[k] = {'b': v};
@@ -42,8 +44,11 @@ class Backup {
     if (j['format'] != _magic) throw const FormatException('format');
     final data = j['prefs'] as Map<String, dynamic>;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    for (final k in prefs.getKeys().toList()) {
+      if (!k.startsWith('license_')) await prefs.remove(k);
+    }
     for (final e in data.entries) {
+      if (e.key.startsWith('license_')) continue;
       final v = e.value as Map<String, dynamic>;
       if (v.containsKey('b')) await prefs.setBool(e.key, v['b'] as bool);
       if (v.containsKey('i')) await prefs.setInt(e.key, v['i'] as int);

@@ -10,6 +10,7 @@ import '../services/reminders.dart';
 import '../state/app_state.dart';
 import '../state/settings.dart';
 import 'navigation.dart';
+import 'subscription_screen.dart';
 import 'widgets/channel_logo.dart';
 
 /// Alerte affichee quand une emission rappelee va commencer.
@@ -21,6 +22,7 @@ Future<void> showReminderAlert(NavigatorState nav, Reminder r) async {
     builder: (_) => _ReminderDialog(reminder: r),
   );
   if (watch != true || !ctx.mounted) return;
+  if (!await ensureLicensed(ctx) || !ctx.mounted) return;
   final app = ctx.read<AppState>();
   if (app.active?.id != r.sourceId) {
     final src = app.sources.where((s) => s.id == r.sourceId).firstOrNull;

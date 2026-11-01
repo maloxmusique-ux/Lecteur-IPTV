@@ -1,0 +1,7 @@
+# Les fonctions verifient elles-memes les appels (secret de l'appareil,
+# signature Stripe) : pas de jeton Supabase exige.
+[functions.license]
+verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false
