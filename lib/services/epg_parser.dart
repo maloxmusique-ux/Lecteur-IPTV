@@ -13,7 +13,9 @@ EpgData parseXmltv(
   int pastHours = 6,
   int futureHours = 24 * 8,
   Map<String, int> archiveHours = const {},
-  int maxDesc = 600,
+  Set<String>? wantedIds,
+  Set<String>? wantedNames,
+  int maxDesc = 400,
   int? nowMs,
 }) {
   final now = nowMs ?? DateTime.now().millisecondsSinceEpoch;
@@ -22,6 +24,11 @@ EpgData parseXmltv(
 
   final programmes = <String, List<Programme>>{};
   final nameIndex = <String, String>{};
+
+  // Grosses listes : on ne garde que les chaines presentes dans le catalogue.
+  final filter = (wantedIds != null && wantedIds.isNotEmpty) ||
+      (wantedNames != null && wantedNames.isNotEmpty);
+  final wanted = <String>{...?wantedIds};
 
   // Etat courant.
   String? channelId; // dans <channel>
@@ -49,6 +56,7 @@ EpgData parseXmltv(
           final arch = progChannel == null ? null : archiveHours[progChannel];
           final from = arch == null ? minMs : now - arch * 3600000;
           keepProg = progChannel != null &&
+              (!filter || wanted.contains(progChannel)) &&
               progStop > from &&
               progStart < maxMs;
           title = '';
@@ -79,7 +87,11 @@ EpgData parseXmltv(
         case 'display-name':
           if (textTarget == 'display-name' && channelId != null) {
             final n = EpgData.normalizeName(text.toString());
-            if (n.isNotEmpty) nameIndex.putIfAbsent(n, () => channelId!);
+            if (n.isNotEmpty &&
+                (!filter || (wantedNames?.contains(n) ?? false))) {
+              nameIndex.putIfAbsent(n, () => channelId!);
+              if (filter) wanted.add(channelId);
+            }
           }
           textTarget = null;
         case 'title':

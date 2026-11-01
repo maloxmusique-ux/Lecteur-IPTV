@@ -167,4 +167,19 @@ void main() {
       expect(m.backdrop, 'http://img/b.jpg');
     });
   });
+
+  test('guide filtre sur les chaines de la liste', () {
+    const xml = '''<tv>
+  <channel id="a.fr"><display-name>Chaine A</display-name></channel>
+  <channel id="b.fr"><display-name>Chaine B</display-name></channel>
+  <channel id="z.fr"><display-name>Autre</display-name></channel>
+  <programme start="20261101100000 +0000" stop="20261101110000 +0000" channel="a.fr"><title>A</title></programme>
+  <programme start="20261101100000 +0000" stop="20261101110000 +0000" channel="b.fr"><title>B</title></programme>
+  <programme start="20261101100000 +0000" stop="20261101110000 +0000" channel="z.fr"><title>Z</title></programme>
+</tv>''';
+    final now = DateTime.utc(2026, 11, 1, 10, 30).millisecondsSinceEpoch;
+    final epg = parseXmltv(xml,
+        nowMs: now, wantedIds: {'a.fr'}, wantedNames: {'chaineb'});
+    expect(epg.programmes.keys.toSet(), {'a.fr', 'b.fr'});
+  });
 }

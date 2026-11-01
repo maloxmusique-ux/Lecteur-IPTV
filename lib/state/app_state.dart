@@ -303,8 +303,18 @@ class AppState extends ChangeNotifier {
         for (final c in catalog.live)
           if (c.hasArchive && c.epgId.isNotEmpty) c.epgId: c.archiveDays * 24,
       };
-      final e = await repo.fetchEpg(url,
-          userAgent: s.userAgent, archiveHours: archive);
+      final e = await repo.fetchEpg(
+        url,
+        userAgent: s.userAgent,
+        archiveHours: archive,
+        wantedIds: {
+          for (final c in catalog.live)
+            if (c.epgId.isNotEmpty) c.epgId,
+        },
+        wantedNames: {
+          for (final c in catalog.live) EpgData.normalizeName(c.name),
+        },
+      );
       if (active?.id == s.id) epg = e;
     } catch (_) {
       // Le guide est facultatif.

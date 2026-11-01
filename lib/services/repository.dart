@@ -77,10 +77,15 @@ class Repository {
     String url, {
     String userAgent = '',
     Map<String, int> archiveHours = const {},
+    Set<String>? wantedIds,
+    Set<String>? wantedNames,
   }) async {
     final epg = await Isolate.run(() async {
       final xml = await fetchText(url, userAgent: userAgent);
-      return parseXmltv(xml, archiveHours: archiveHours);
+      return parseXmltv(xml,
+          archiveHours: archiveHours,
+          wantedIds: wantedIds,
+          wantedNames: wantedNames);
     });
     _writeCache('epg_${_key(url)}.json', () => epg.toJson());
     return epg;
