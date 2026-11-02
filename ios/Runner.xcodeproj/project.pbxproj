@@ -387,7 +387,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				DEVELOPMENT_TEAM = LZMNRQX7Y9;
+				DEVELOPMENT_TEAM = L2SL7Z7R78;
 				PRODUCT_BUNDLE_IDENTIFIER = com.canalixtv.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
@@ -569,7 +569,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				DEVELOPMENT_TEAM = LZMNRQX7Y9;
+				DEVELOPMENT_TEAM = L2SL7Z7R78;
 				PRODUCT_BUNDLE_IDENTIFIER = com.canalixtv.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
@@ -592,7 +592,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				DEVELOPMENT_TEAM = LZMNRQX7Y9;
+				DEVELOPMENT_TEAM = L2SL7Z7R78;
 				PRODUCT_BUNDLE_IDENTIFIER = com.canalixtv.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";

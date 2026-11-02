@@ -19,7 +19,7 @@ case "$1" in
     echo "OK : /Applications/Canalix.app"
     ;;
   iphone)
-    # Signature automatique : equipe Apple deja dans le projet (LZMNRQX7Y9).
+    # Signature automatique : equipe Apple deja dans le projet (L2SL7Z7R78).
     DEVICE="${DEVICE:-$(flutter devices --machine | python3 -c 'import json,sys; d=[x for x in json.load(sys.stdin) if x.get("targetPlatform","").startswith("ios") and not x.get("emulator")]; print(d[0]["id"] if d else "")')}"
     [ -z "$DEVICE" ] && { echo "Aucun iPhone trouve : branche-le et deverrouille-le."; exit 1; }
     flutter build ios --release "${DEFINES[@]}"
