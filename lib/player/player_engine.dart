@@ -102,6 +102,7 @@ class PlayerEngine extends ChangeNotifier {
     // Si la lecture avance, le flux est sain : on efface l'erreur.
     _subs.add(player.stream.position.listen((pos) {
       _lastPos = pos;
+      if (pos > const Duration(seconds: 3)) _checkAudio();
       if (lastError != null && pos > const Duration(seconds: 1)) {
         lastError = null;
         retries = 0;
@@ -127,23 +128,49 @@ class PlayerEngine extends ChangeNotifier {
   String? _defaultHwdec;
   String? _lastAf;
 
+  /// Filtre audio refuse par cette build de libmpv : on le retire pour de
+  /// bon (le son passe avant tout).
+  bool _afBroken = false;
+  bool _afChecked = false;
+
+  Future<void> _checkAudio() async {
+    if (_afChecked || _afBroken || (_lastAf ?? '').isEmpty) return;
+    _afChecked = true;
+    final aid = await _get('aid');
+    if (aid == null || aid == 'no' || aid == 'auto') return;
+    final fmt = await _get('audio-params/format');
+    final ao = await _get('audio-out-params/format');
+    if ((fmt ?? '').isEmpty || (ao ?? '').isEmpty) {
+      _afBroken = true;
+      _lastAf = '';
+      final p = player.platform;
+      if (p is NativePlayer) {
+        try {
+          await p.setProperty('af', '');
+          // Relance le son sans filtre.
+          await p.setProperty('aid', aid);
+        } catch (_) {}
+      }
+    }
+  }
+
   /// Filtres audio selon le mode choisi. Les versions de libmpv livrees
-  /// sur Android, Windows et Apple n'ont que equalizer et volume : on fait
-  /// tout avec eux (verifie dans les bibliotheques publiees).
+  /// n'ont presque aucun filtre : seul `equalizer` existe partout (Android,
+  /// Windows, iPhone ; `volume` manque sur iPhone et y coupait tout le son).
+  /// On n'utilise donc que lui, sans gain total positif.
   static String audioFilter(AudioMode m) {
     String eq(int f, double w, double g) => 'equalizer=f=$f:t=q:w=$w:g=$g';
     return switch (m) {
       // Plus de presence : grondement retire, voix et details un peu portes.
       AudioMode.auto => 'lavfi=[${eq(40, 1, -3)},${eq(250, 1, -1)},'
-          '${eq(3000, 1.4, 2.5)},${eq(9000, 1, 1)},volume=volume=-1dB]',
+          '${eq(3000, 1.4, 2.0)},${eq(9000, 1, 1)}]',
       // Voix au premier plan (nouvelles, sport, films ou on entend mal).
       AudioMode.voice => 'lavfi=[${eq(60, 0.8, -8)},${eq(200, 1, -4)},'
-          '${eq(1200, 1.2, 3)},${eq(2800, 1.2, 6)},${eq(8000, 1, 1)},'
-          'volume=volume=-1dB]',
+          '${eq(1200, 1.2, 2)},${eq(2800, 1.2, 4)},${eq(8000, 1, 1)}]',
       // Nuit : basses et grondements (explosions, musique) tres reduits,
       // voix gardees : on peut baisser le volume sans perdre les dialogues.
       AudioMode.night => 'lavfi=[${eq(50, 0.7, -12)},${eq(120, 1, -8)},'
-          '${eq(300, 1, -3)},${eq(2500, 1.2, 5)},volume=volume=-1dB]',
+          '${eq(300, 1, -3)},${eq(2500, 1.2, 4)}]',
       AudioMode.original => '',
     };
   }
@@ -221,12 +248,11 @@ class PlayerEngine extends ChangeNotifier {
     // ---- Son
     // 5.1 -> stereo sans perte de volume, avec les basses (LFE) gardees.
     opts['audio-normalize-downmix'] = 'yes';
-    opts['audio-swresample-o'] = 'lfe_mix_level=0.6';
     opts['audio-pitch-correction'] = 'yes';
     // Ampli / barre de son : Dolby et DTS envoyes tels quels.
     opts['audio-spdif'] = s.audioPassthrough ? 'ac3,eac3,dts,dts-hd,truehd' : '';
     opts['audio-channels'] = s.audioPassthrough ? 'auto' : 'auto-safe';
-    final af = s.audioPassthrough ? '' : audioFilter(s.audioMode);
+    final af = s.audioPassthrough || _afBroken ? '' : audioFilter(s.audioMode);
     if (af != _lastAf) {
       _lastAf = af;
       opts['af'] = af;
@@ -265,6 +291,7 @@ class PlayerEngine extends ChangeNotifier {
       _index = queue.indexWhere((e) => e.id == c.id);
     }
     _current = c;
+    _afChecked = false;
     lastError = null;
     retries = 0;
     _retry?.cancel();

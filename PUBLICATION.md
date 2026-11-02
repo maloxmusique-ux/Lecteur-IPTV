@@ -28,7 +28,9 @@ et une fiche trompeuse est une cause de refus en soi (Apple 2.3, Google « Fiche
 | Chiffrement à l'export | `ITSAppUsesNonExemptEncryption = NO` (HTTPS et AES standard seulement) |
 | Android API 36, pages de 16 Ko | Vérifié sur l'APK |
 | Alarmes non exactes (pas de permission restreinte) | Rappels en mode « inexact » |
-| Pas de compte utilisateur | Donc pas d'obligation de suppression de compte |
+| Pas de compte utilisateur, mais suppression quand même (règle 5.1.1(v)) | Réglages > Supprimer mes données : efface l'appareil sur le serveur (licence, paiements liés, codes), arrête Stripe, puis vide l'appareil. Bouton « Gérer mes abonnements » pour Apple/Google |
+| Mentions légales, documents, licences libres (LGPL de mpv/FFmpeg) | Réglages > À propos et mentions légales |
+| Réseau local expliqué | `NSLocalNetworkUsageDescription` : Chromecast et enregistreur maison |
 
 **Avant de soumettre :** activer les pages publiques (GitHub > dépôt > Settings > Pages >
 Branch `main`, dossier `/docs`). Adresse : https://maloxmusique-ux.github.io/Lecteur-IPTV/
@@ -108,6 +110,11 @@ jamais de « 10 000 chaînes » ou « chaînes gratuites ». C'est la première 
 > open movies) hosted at https://maloxmusique-ux.github.io/Lecteur-IPTV/demo.m3u
 > Subscriptions use In-App Purchase only (7-day free trial as an introductory offer).
 > No account is required. Restore Purchases is on the plans screen and in Settings > My subscription.
+> Data deletion: Settings > "Supprimer mes données" (Delete my data) erases the device record on
+> our server (trial, subscription status, payment history) and all data on the device. Store
+> subscriptions are cancelled in the Apple account; the screen links to Manage Subscriptions.
+> Local network access is only used to find Chromecast devices and the user's own Canalix
+> "home recorder" (another device of the user running Canalix on the same Wi-Fi).
 
 Connexion requise : **Non**.
 
@@ -170,7 +177,9 @@ Produit intégré (unique) : `canalix_lifetime`, 39,99 $.
     non partagé, traitement éphémère : non, obligatoire, finalité : fonctionnalité de l'app.
   - Achats intégrés (historique d'achats) : collecté, non partagé, fonctionnalité.
   - Données chiffrées en transit : **Oui**. Possibilité de demander la suppression : **Oui**
-    (lien : page d'aide, section « Supprimer mes données »).
+    (lien : page d'aide, section « Supprimer mes données »). Suppression aussi dans l'app :
+    Réglages > Supprimer mes données. Lien à donner pour « suppression des données » :
+    https://maloxmusique-ux.github.io/Lecteur-IPTV/aide.html
 - **Services au premier plan** : type **specialUse** (Android 14 et plus ; dataSync avant).
   Justification à coller : « Magnétoscope personnel. L'utilisateur programme lui-même
   l'enregistrement d'une émission ; le service copie le flux dans un fichier sur l'appareil,

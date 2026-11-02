@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 
 import 'l10n/i18n.dart';
 import 'player/player_engine.dart';
+import 'services/eraser.dart';
 import 'services/home_recorder.dart';
 import 'services/license.dart';
 import 'services/migrate.dart';
@@ -32,6 +33,8 @@ final navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+  // « Supprimer mes donnees » : on finit d'effacer avant de tout charger.
+  await DataEraser.finishPending();
   MediaKit.ensureInitialized();
   await migrateFromStreamFlow();
   await Vault.init();

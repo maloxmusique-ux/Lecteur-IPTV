@@ -257,8 +257,13 @@ class LicenseService extends ChangeNotifier {
 
   // ------------------------------------------------------------- Serveur
 
+  /// Apres « Supprimer mes donnees » : plus aucun appel au serveur, sinon
+  /// l'appareil y serait recree.
+  bool _erased = false;
+
   Future<Map<String, dynamic>> _call(String action,
       [Map<String, Object?> extra = const {}]) async {
+    if (_erased) throw Exception('erased');
     if (Brand.testMode) return _testCall(action, extra);
     final res = await http
         .post(
@@ -313,6 +318,26 @@ class LicenseService extends ChangeNotifier {
     } finally {
       loading = false;
       notifyListeners();
+    }
+  }
+
+  /// Efface l'appareil sur le serveur (licence, paiements lies, codes).
+  /// Les abonnements Apple / Google se resilient dans le compte de la
+  /// boutique : l'app ne peut pas le faire a la place de la personne.
+  Future<void> deleteRemote() async {
+    _timer?.cancel();
+    if (Brand.testMode) {
+      await _prefs.remove('license_test');
+      _erased = true;
+      return;
+    }
+    try {
+      final j = await _call('delete');
+      if (j['deleted'] != true) throw Exception('delete failed');
+      _erased = true;
+    } catch (_) {
+      _timer = Timer.periodic(const Duration(minutes: 30), (_) => refresh());
+      rethrow;
     }
   }
 

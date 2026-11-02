@@ -15,7 +15,7 @@
 		<string>audio</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Canalix cherche les Chromecast de ton réseau pour diffuser sur la télé.</string>
+	<string>Canalix cherche sur ton réseau Wi-Fi les Chromecast (pour diffuser sur la télé) et ton enregistreur maison Canalix (pour enregistrer même quand cet appareil est éteint).</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_googlecast._tcp</string>

@@ -104,6 +104,31 @@ Deno.serve(async (req) => {
         return json({ url: session.url });
       }
 
+      case "delete": {
+        // Bouton « Supprimer mes donnees » : on arrete tout paiement Stripe
+        // en cours, on archive les montants payes sans lien avec l'appareil
+        // (comptabilite), puis on efface l'appareil, sa licence, ses
+        // paiements et ses codes utilises (suppression en cascade).
+        const { data: l } = await db.from("licenses").select("*").eq("mac", mac).maybeSingle();
+        if (l?.stripe_subscription_id) {
+          try { await stripe.subscriptions.cancel(l.stripe_subscription_id); } catch (_) { /* deja annule */ }
+        }
+        if (l?.stripe_customer_id) {
+          try { await stripe.customers.del(l.stripe_customer_id); } catch (_) { /* deja supprime */ }
+        }
+        const { data: pays } = await db.from("payments")
+          .select("id, plan, amount_cents, currency, created_at").eq("mac", mac);
+        if (pays && pays.length) {
+          const { error } = await db.from("payments_archive").upsert(pays.map((p) => ({
+            id: p.id, plan: p.plan, amount_cents: p.amount_cents, currency: p.currency, paid_at: p.created_at,
+          })));
+          if (error) throw error;
+        }
+        const { error: delErr } = await db.from("devices").delete().eq("mac", mac);
+        if (delErr) throw delErr;
+        return json({ deleted: true });
+      }
+
       case "cancel":
       case "resume": {
         const { data: l } = await db.from("licenses").select("*").eq("mac", mac).maybeSingle();

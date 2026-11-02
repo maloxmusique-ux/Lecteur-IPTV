@@ -4,7 +4,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../config/brand.dart';
 import '../l10n/i18n.dart';
 import '../models/models.dart';
 import '../services/backup.dart';
@@ -12,6 +11,7 @@ import '../services/recorder.dart';
 import '../services/reminders.dart';
 import '../state/app_state.dart';
 import '../state/settings.dart';
+import 'about_screen.dart';
 import 'legal_screen.dart';
 import 'navigation.dart';
 import 'player_screen.dart' show fitLabel;
@@ -550,15 +550,27 @@ class SettingsView extends StatelessWidget {
           // ------------------------------------------ A propos
           section(tr('settings.about')),
           ListTile(
+            leading: const Icon(Icons.info_outline_rounded),
+            title: Text(tr('about.title')),
+            subtitle: Text(tr('about.tileSub')),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AboutScreen())),
+          ),
+          ListTile(
             leading: const Icon(Icons.verified_user_outlined),
             title: Text(tr('legal.title')),
             onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const LegalScreen())),
           ),
           ListTile(
-            leading: const Icon(Icons.info_outline_rounded),
-            title: const Text(Brand.fullName),
-            subtitle: Text(tr('settings.aboutText')),
+            leading: Icon(Icons.delete_forever_rounded,
+                color: Theme.of(context).colorScheme.error),
+            title: Text(tr('erase.title'),
+                style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            subtitle: Text(tr('erase.sub')),
+            onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const DeleteDataScreen())),
           ),
         ],
       ),

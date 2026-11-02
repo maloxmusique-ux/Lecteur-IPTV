@@ -1,6 +1,6 @@
 # Politique de confidentialité de Canalix
 
-Dernière mise à jour : 1er novembre 2026
+Dernière mise à jour : 2 novembre 2026
 
 Canalix est un lecteur vidéo. Il ne fournit aucune chaîne ni aucun contenu : tu y ajoutes
 tes propres sources (liste M3U ou compte Xtream) obtenues auprès de ton fournisseur.
@@ -63,10 +63,18 @@ La licence n'y figure jamais : elle reste liée à l'appareil.
 
 ## Conservation et suppression
 
-Les données de licence sont gardées tant que l'appareil est actif, et jusqu'à 6 ans pour les
-paiements (obligations comptables). Pour faire supprimer les données liées à ton appareil,
-écris à support@canalixtv.com en indiquant l'adresse MAC affichée dans
-Réglages > Abonnement. Désinstaller l'app efface tout ce qui était sur l'appareil.
+Les données de licence sont gardées tant que l'appareil est actif. Tu peux tout supprimer
+toi-même, à tout moment, dans l'app : **Réglages > Supprimer mes données**. Cela efface
+immédiatement, sur notre serveur, l'identifiant de l'appareil, l'essai, l'abonnement,
+l'historique des paiements et les codes utilisés, puis tout ce que Canalix garde sur
+l'appareil (listes, mots de passe, favoris, réglages et, si tu le choisis, les enregistrements).
+Un abonnement par carte (Stripe) est arrêté au même moment. Un abonnement App Store ou
+Google Play se résilie dans ton compte Apple ou Google.
+
+Seuls le montant, le forfait et la date des paiements sont gardés jusqu'à 6 ans, sans aucun
+lien avec l'appareil ni avec toi (obligations comptables). Si tu n'as plus accès à l'app,
+écris à support@canalixtv.com avec l'adresse MAC affichée dans Réglages > Abonnement :
+nous supprimons tes données sous 30 jours.
 
 ## Où sont les données
 

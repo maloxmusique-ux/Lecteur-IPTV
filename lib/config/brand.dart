@@ -12,6 +12,14 @@ class Brand {
   /// Nom complet (boutiques, recus).
   static const fullName = 'Canalix Player';
 
+  /// Version affichee (garder en accord avec pubspec.yaml).
+  static const version = '1.0.0';
+
+  /// Editeur responsable (mentions legales). A remplacer par le nom
+  /// legal (personne ou entreprise) qui publie l'app dans les boutiques.
+  static const publisher = 'Canalix';
+  static const publisherLocation = 'Québec, Canada';
+
   /// Adresse du service client.
   static const supportEmail = 'support@canalixtv.com';
 
