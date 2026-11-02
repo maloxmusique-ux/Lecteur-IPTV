@@ -62,7 +62,7 @@ La prochaine compilation sortira avec les vrais paiements.
 
 ## Au quotidien
 
-Ouvre **ton portail** : le fichier `portail/index.html` (une copie est dans ton dossier IPTV).
+Ouvre **ton portail** : https://maloxmusique-ux.github.io/Lecteur-IPTV/admin/ (sur iPhone : Safari > Partager > « Sur l’écran d’accueil » pour l’avoir comme une app).
 Double-clique dessus, entre l'adresse du projet Supabase et ton `ADMIN_PASSWORD`.
 
 - **Créer des codes cadeaux** : choisis 1, 3, 6, 12 mois ou à vie, le nombre de codes, et combien

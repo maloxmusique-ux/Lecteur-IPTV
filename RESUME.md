@@ -105,7 +105,7 @@ Modèle choisi par Léandre : **app gratuite à télécharger, accès payant par
 ### Version 5 (1er novembre 2026) : nom Canalix, codes cadeaux, portail
 - **Nom : Canalix** (« StreamFlow » était déjà pris par d'autres apps IPTV). Nom en boutique : « Canalix IPTV Player ». Domaines libres au 1er nov. 2026 : `canalixtv.com`, `getcanalix.com` (à acheter). Identifiant d'app partout : `com.canalixtv.app`. Exécutable Windows : `canalix.exe`. Fichiers publiés : `Canalix-windows.zip`, `Canalix-android.apk`, `Canalix-macos.zip`. Le paquet Dart garde le nom interne `streamflow` (invisible). Au premier lancement, les données de l'ancienne app StreamFlow sont copiées automatiquement (`services/migrate.dart`).
 - **Codes cadeaux** : 1, 3, 6, 12 mois ou à vie. Bouton « J'ai un code » sur l'écran des forfaits et dans Mon abonnement. Un accès offert ne se renouvelle jamais (rien à annuler, rien de prélevé) ; une durée s'ajoute à un accès offert déjà en cours. En mode test : `TEST-1M`, `TEST-12M`, `TEST-VIE`. Serveur : tables `promo_codes` et `redemptions`, action `redeem` de la fonction `license`.
-- **Portail de Léandre** : `portail/index.html` (un seul fichier, à ouvrir dans le navigateur). Créer des codes (durée, nombre, personnes par code, note), activer une adresse MAC directement, retirer un accès offert, désactiver un code, voir les appareils et les revenus. Protégé par le secret Supabase `ADMIN_PASSWORD` (fonction `admin`). Mode démo sans serveur. Aucun compte client à gérer.
+- **Portail de Léandre** : `docs/admin/index.html`, en ligne à https://maloxmusique-ux.github.io/Lecteur-IPTV/admin/ (non référencé par Google, s'ajoute à l'écran d'accueil de l'iPhone comme une app). Créer des codes (durée, nombre, personnes par code, note), activer une adresse MAC directement, retirer un accès offert, désactiver un code, voir les appareils et les revenus. Protégé par le secret Supabase `ADMIN_PASSWORD` (fonction `admin`). Mode démo sans serveur. Aucun compte client à gérer.
 - **VPN** : écarté (coûteux, responsabilité légale, et les fournisseurs IPTV bloquent souvent les VPN). À la place :
 - **Identifiants chiffrés** : les sources (URL, utilisateurs, mots de passe) sont chiffrées en AES-256-GCM (`services/vault.dart`), clé dans le trousseau du système (`flutter_secure_storage`). Les anciennes sources en clair sont chiffrées au démarrage. La sauvegarde exporte les sources en clair pour pouvoir les restaurer ailleurs.
 - **Enregistrements récurrents** : en appuyant sur « Enregistrer », choix « Une seule fois », « Chaque fois qu'elle passe » (même titre sur la même chaîne, trouvé dans le guide, 8 jours à l'avance) ou « Chaque semaine » (même jour, même heure ; heures exactes reprises du guide si dispo). Section « Séries d'enregistrement » dans l'onglet Enregistrements avec « Arrêter la série ». Une diffusion annulée à la main ne revient pas. Code : `RecRule` dans `services/recorder.dart`.
@@ -181,7 +181,7 @@ lib/
   services/cast.dart           Protocole Chromecast
   ui/widgets/                  Tuile de chaîne, affiche, logo, code parental
 supabase/                    Serveur de licences (tables, fonctions license, stripe-webhook, admin)
-portail/index.html           Portail administrateur de Léandre
+docs/admin/index.html        Portail administrateur de Léandre (en ligne, /admin/)
 test/parsers_test.dart         Tests des parseurs
 test/features_test.dart        Tests des nouvelles fonctions et des traductions
 ```
