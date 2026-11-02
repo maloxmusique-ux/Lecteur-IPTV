@@ -12,6 +12,7 @@ import '../services/reminders.dart';
 import '../state/app_state.dart';
 import 'catchup_screen.dart';
 import 'guide_screen.dart';
+import 'launcher_view.dart';
 import 'multiview_screen.dart';
 import 'navigation.dart';
 import 'programme_sheet.dart';
@@ -34,13 +35,14 @@ class HomeScreen extends StatefulWidget {
 }
 
 /// Onglets de l'accueil.
-enum HomeTab { live, guide, movies, series, mylist, recordings, sources, settings, more }
+enum HomeTab { home, live, guide, movies, series, mylist, recordings, sources, settings, more }
 
 class _HomeScreenState extends State<HomeScreen> {
   // Statique : l'onglet reste le meme apres un changement de langue.
-  static HomeTab _tab = HomeTab.live;
+  static HomeTab _tab = HomeTab.home;
 
   static (IconData, IconData, String) _dest(HomeTab t) => switch (t) {
+        HomeTab.home => (Icons.home_outlined, Icons.home_rounded, tr('tab.home')),
         HomeTab.live => (Icons.live_tv_outlined, Icons.live_tv_rounded, tr('tab.live')),
         HomeTab.guide => (Icons.calendar_view_week_outlined, Icons.calendar_view_week_rounded, tr('tab.guide')),
         HomeTab.movies => (Icons.movie_outlined, Icons.movie_rounded, tr('tab.movies')),
@@ -53,6 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
       };
 
   static const _wideTabs = [
+    HomeTab.home,
     HomeTab.live,
     HomeTab.guide,
     HomeTab.movies,
@@ -63,15 +66,66 @@ class _HomeScreenState extends State<HomeScreen> {
     HomeTab.settings,
   ];
 
+  // Telephone : l'accueil remplace l'ancien menu « Plus ».
   static const _mobileTabs = [
+    HomeTab.home,
     HomeTab.live,
     HomeTab.guide,
     HomeTab.movies,
     HomeTab.series,
-    HomeTab.more,
   ];
 
+  void _open(LauncherTarget t) {
+    final wide = isWide(context);
+    final tabs = wide ? _wideTabs : _mobileTabs;
+    void push(Widget w) =>
+        Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
+    HomeTab? tab = switch (t) {
+      LauncherTarget.live => HomeTab.live,
+      LauncherTarget.guide => HomeTab.guide,
+      LauncherTarget.movies => HomeTab.movies,
+      LauncherTarget.series => HomeTab.series,
+      LauncherTarget.mylist => HomeTab.mylist,
+      LauncherTarget.recordings => HomeTab.recordings,
+      LauncherTarget.sources => HomeTab.sources,
+      LauncherTarget.settings => HomeTab.settings,
+      _ => null,
+    };
+    if (tab != null && tabs.contains(tab)) {
+      setState(() => _tab = tab);
+      return;
+    }
+    switch (t) {
+      case LauncherTarget.mylist:
+        push(const MyListView(standalone: true));
+      case LauncherTarget.recordings:
+        push(const RecordingsView());
+      case LauncherTarget.sources:
+        push(const SourcesView());
+      case LauncherTarget.settings:
+        push(const SettingsView());
+      case LauncherTarget.multi:
+        openMultiView(context);
+      case LauncherTarget.reload:
+        reloadApp(context);
+      default:
+    }
+  }
+
+  /// Retour : d'abord revenir aux categories, puis a l'accueil.
+  void _back() {
+    final type = switch (_tab) {
+      HomeTab.live => ContentType.live,
+      HomeTab.movies => ContentType.movie,
+      HomeTab.series => ContentType.series,
+      _ => null,
+    };
+    if (type != null && BrowseView.backHandlers[type]?.call() == true) return;
+    setState(() => _tab = HomeTab.home);
+  }
+
   Widget _view(HomeTab t) => switch (t) {
+        HomeTab.home => LauncherView(onOpen: _open),
         HomeTab.live => const BrowseView(type: ContentType.live, key: PageStorageKey('live')),
         HomeTab.guide => const GuideView(),
         HomeTab.movies => const BrowseView(type: ContentType.movie, key: PageStorageKey('movie')),
@@ -94,7 +148,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     final tabs = wide ? _wideTabs : _mobileTabs;
-    if (!tabs.contains(_tab)) _tab = wide ? HomeTab.mylist : HomeTab.more;
+    if (!tabs.contains(_tab)) _tab = HomeTab.home;
     final index = tabs.indexOf(_tab);
 
     final body = Column(
@@ -122,8 +176,16 @@ class _HomeScreenState extends State<HomeScreen> {
       return i;
     }
 
+    Widget scope(Widget child) => PopScope(
+          canPop: _tab == HomeTab.home,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _back();
+          },
+          child: child,
+        );
+
     if (wide) {
-      return Scaffold(
+      return scope(Scaffold(
         body: Row(
           children: [
             LayoutBuilder(
@@ -166,9 +228,9 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(child: body),
           ],
         ),
-      );
+      ));
     }
-    return Scaffold(
+    return scope(Scaffold(
       body: body,
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
@@ -182,7 +244,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
         ],
       ),
-    );
+    ));
   }
 }
 
@@ -244,6 +306,9 @@ class BrowseView extends StatefulWidget {
   final ContentType type;
   const BrowseView({super.key, required this.type});
 
+  /// Bouton retour du telephone : revenir de la liste aux categories.
+  static final backHandlers = <ContentType, bool Function()>{};
+
   @override
   State<BrowseView> createState() => _BrowseViewState();
 }
@@ -251,6 +316,28 @@ class BrowseView extends StatefulWidget {
 class _BrowseViewState extends State<BrowseView> {
   String? _group; // null = tout
   String _query = '';
+
+  /// Telephone : false = liste des categories, true = chaines d'une categorie.
+  bool _inGroup = false;
+
+  @override
+  void initState() {
+    super.initState();
+    BrowseView.backHandlers[widget.type] = _backToGroups;
+  }
+
+  bool _backToGroups() {
+    if (isWide(context)) return false;
+    if (_inGroup || _query.isNotEmpty) {
+      setState(() {
+        _inGroup = false;
+        _query = '';
+        _search.clear();
+      });
+      return true;
+    }
+    return false;
+  }
   Timer? _debounce;
   final _search = TextEditingController();
 
@@ -310,6 +397,9 @@ class _BrowseViewState extends State<BrowseView> {
 
   @override
   void dispose() {
+    if (BrowseView.backHandlers[widget.type] == _backToGroups) {
+      BrowseView.backHandlers.remove(widget.type);
+    }
     _debounce?.cancel();
     _search.dispose();
     super.dispose();
@@ -372,48 +462,141 @@ class _BrowseViewState extends State<BrowseView> {
       );
     }
 
-    // Telephone : apercu en haut (si une chaine est choisie), puis
-    // recherche, categories et liste, toujours visibles.
+    // Telephone : d'abord les categories, puis les chaines de celle choisie.
+    final showList = _inGroup || _query.trim().isNotEmpty;
+    final previewOn = live &&
+        context.select<PlayerEngine, bool>(
+            (e) => e.current?.type == ContentType.live);
+    if (!showList) {
+      return SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            if (previewOn) const _MobilePreview(),
+            _Header(
+              title: _title,
+              count: app.catalog.of(widget.type).length,
+              controller: _search,
+              onChanged: _onSearch,
+              loading: app.loading || app.epgLoading,
+              onRefresh: app.refresh,
+              compact: previewOn,
+            ),
+            Expanded(
+              child: _CategoryPage(
+                type: widget.type,
+                groups: groups,
+                onSelect: (g) async {
+                  await _selectGroup(app, g);
+                  if (mounted && _group == g) setState(() => _inGroup = true);
+                },
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    final groupTitle = _query.trim().isNotEmpty && !_inGroup
+        ? tr('browse.results')
+        : (_group == null ? tr('browse.allGroups') : AppState.groupLabel(_group!));
     return SafeArea(
       bottom: false,
       child: Column(
         children: [
           if (live) const _MobilePreview(),
-          // Apercu affiche : on garde la place pour la liste.
-          if (live && context.select<PlayerEngine, bool>((e) => e.current?.type == ContentType.live))
-            _Header(
-              compact: true,
-              title: _title,
-              count: items.length,
-              controller: _search,
-              onChanged: _onSearch,
-              loading: app.loading || app.epgLoading,
-              onRefresh: app.refresh,
-            )
-          else
-            header,
-          // Categories a la verticale sur le cote, liste a droite.
-          Expanded(
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 4, 8, 0),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                SizedBox(
-                  width: 118,
-                  child: _GroupList(
-                    type: widget.type,
-                    groups: groups,
-                    selected: _group,
-                    onSelect: (g) => _selectGroup(app, g),
-                    compact: true,
-                  ),
+                IconButton(
+                  tooltip: tr('common.back'),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  onPressed: _backToGroups,
                 ),
-                const VerticalDivider(width: 1),
-                Expanded(child: list),
+                Expanded(
+                  child: Text(groupTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium),
+                ),
+                Text('${items.length}',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant)),
               ],
             ),
           ),
+          _Header(
+            compact: true,
+            title: _title,
+            count: items.length,
+            controller: _search,
+            onChanged: _onSearch,
+            loading: app.loading || app.epgLoading,
+            onRefresh: app.refresh,
+          ),
+          Expanded(child: list),
         ],
       ),
+    );
+  }
+}
+
+/// Telephone : liste des categories en grand, avec le nombre de chaines.
+class _CategoryPage extends StatelessWidget {
+  final ContentType type;
+  final List<String> groups;
+  final ValueChanged<String?> onSelect;
+  const _CategoryPage(
+      {required this.type, required this.groups, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final theme = Theme.of(context);
+    final fav = app.favoriteChannels(type).length;
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+      itemCount: groups.length + 1,
+      itemBuilder: (context, i) {
+        final g = i == 0 ? null : groups[i - 1];
+        final locked = g != null && app.isLockedGroup(type, g) && !app.unlocked;
+        final n = g == null
+            ? app.catalog.of(type).length
+            : app.catalog.countIn(type, g);
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          color: g == null ? theme.colorScheme.secondaryContainer : null,
+          child: ListTile(
+            leading: Icon(
+                g == null
+                    ? Icons.apps_rounded
+                    : (locked ? Icons.lock_rounded : Icons.folder_rounded),
+                color: g == null
+                    ? theme.colorScheme.onSecondaryContainer
+                    : theme.colorScheme.primary),
+            title: Text(
+              g == null ? tr('browse.allGroups') : AppState.groupLabel(g),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  fontWeight: g == null ? FontWeight.w700 : FontWeight.w500),
+            ),
+            subtitle: g == null && fav > 0
+                ? Text(tr('browse.favCount', [fav]))
+                : null,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('$n',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant)),
+                const Icon(Icons.chevron_right_rounded),
+              ],
+            ),
+            onTap: () => onSelect(g),
+          ),
+        );
+      },
     );
   }
 }
@@ -666,10 +849,8 @@ class _GroupList extends StatelessWidget {
   final List<String> groups;
   final String? selected;
   final ValueChanged<String?> onSelect;
-  final bool compact;
 
   const _GroupList({
-    this.compact = false,
     required this.type,
     required this.groups,
     required this.selected,
@@ -681,16 +862,16 @@ class _GroupList extends StatelessWidget {
     final app = context.watch<AppState>();
     final scheme = Theme.of(context).colorScheme;
     return ListView.builder(
-      padding: EdgeInsets.symmetric(vertical: compact ? 4 : 8),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: groups.length + 1,
-      itemExtent: compact ? 48 : 44,
+      itemExtent: 44,
       itemBuilder: (_, i) {
         final g = i == 0 ? null : groups[i - 1];
         final sel = selected == g;
         final locked =
             g != null && app.isLockedGroup(type, g) && !app.unlocked;
         return Padding(
-          padding: EdgeInsets.symmetric(horizontal: compact ? 4 : 8, vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           child: Material(
             color: sel ? scheme.secondaryContainer : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
@@ -698,19 +879,15 @@ class _GroupList extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
               onTap: () => onSelect(g),
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 12),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(
                   children: [
                     Expanded(
                       child: Text(
-                        g == null
-                            ? (compact ? tr('common.all') : tr('browse.allGroups'))
-                            : AppState.groupLabel(g),
-                        maxLines: compact ? 2 : 1,
+                        g == null ? tr('browse.allGroups') : AppState.groupLabel(g),
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: compact ? 13 : null,
-                          height: compact ? 1.15 : null,
                           fontWeight: sel ? FontWeight.w700 : FontWeight.w400,
                           color: sel ? scheme.onSecondaryContainer : null,
                         ),
