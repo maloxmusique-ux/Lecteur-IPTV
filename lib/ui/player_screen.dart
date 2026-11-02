@@ -278,7 +278,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
       if (c == null) return;
       final ua = context.read<AppState>().active?.userAgent ?? '';
       final pos = engine.player.state.position;
-      toast(context, tr('pip.opening'));
       // Le flux s'ouvre dans la fenetre flottante, puis on coupe Canalix
       // (une seule connexion au fournisseur a la fois).
       await engine.player.pause();
