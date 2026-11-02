@@ -107,10 +107,20 @@ jobs:
       - name: Creer le zip
         shell: pwsh
         run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath Canalix-windows.zip
+      # Installateur classique (Suivant, Suivant, Terminer) avec raccourcis.
+      - name: Creer l'installateur
+        shell: pwsh
+        env:
+          CANALIX_VERSION: 1.0.${{ github.run_number }}
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" windows\installer\canalix.iss
       - uses: actions/upload-artifact@v4
         with:
           name: Canalix-windows
-          path: Canalix-windows.zip
+          path: |
+            Canalix-windows.zip
+            Canalix-setup.exe
 
   apple:
     name: Mac et iPhone
@@ -162,6 +172,6 @@ jobs:
             --notes "Compilée automatiquement depuis le commit ${{ github.sha }}.
 
           - **Android / Android TV** : télécharge \`Canalix-android.apk\` et ouvre-le pour l'installer.
-          - **Windows** : télécharge \`Canalix-windows.zip\`, décompresse-le, puis lance \`canalix.exe\`.
+          - **Windows** : télécharge \`Canalix-setup.exe\` et lance-le (installation avec raccourcis). Version sans installation : \`Canalix-windows.zip\`.
           - **Mac** : télécharge \`Canalix-macos.zip\`, décompresse-le, puis clic droit sur Canalix et Ouvrir." \
             --prerelease
