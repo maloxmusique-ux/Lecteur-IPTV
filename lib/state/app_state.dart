@@ -257,6 +257,34 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Toutes les connexions permises par le fournisseur IPTV sont deja
+  /// utilisees (souvent par un autre appareil avec le meme compte).
+  bool connectionsFull = false;
+  DateTime? _lastConnCheck;
+
+  /// Verifie aupres du fournisseur (Xtream) si la lecture echoue parce que
+  /// le nombre maximal d'ecrans simultanes est atteint.
+  Future<void> checkConnections() async {
+    final s = active;
+    if (s == null || s.kind != SourceKind.xtream) return;
+    final now = DateTime.now();
+    if (_lastConnCheck != null && now.difference(_lastConnCheck!).inSeconds < 20) return;
+    _lastConnCheck = now;
+    try {
+      final a = await XtreamApi(s).account();
+      account = a;
+      final full = a.maxConnections > 0 && a.activeConnections >= a.maxConnections;
+      if (full != connectionsFull) connectionsFull = full;
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  void clearConnectionsFull() {
+    if (!connectionsFull) return;
+    connectionsFull = false;
+    notifyListeners();
+  }
+
   Future<void> _loadAccount(Source s) async {
     try {
       final a = await XtreamApi(s).account();

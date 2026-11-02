@@ -18,6 +18,7 @@ import 'cast_ui.dart';
 import 'catchup_screen.dart';
 import 'programme_sheet.dart';
 import 'widgets/channel_logo.dart';
+import 'widgets/connection_banner.dart';
 
 const _pip = MethodChannel('streamflow/pip');
 
@@ -366,6 +367,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     top: 70,
                     right: 16,
                     child: _InfoPanel(onClose: () => setState(() => _info = false)),
+                  ),
+                if (!tiny)
+                  const Align(
+                    alignment: Alignment.topCenter,
+                    child: SafeArea(child: Padding(
+                      padding: EdgeInsets.only(top: 90),
+                      child: ConnectionLimitBanner(),
+                    )),
                   ),
                 if (_toast != null && !tiny)
                   Center(

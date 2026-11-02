@@ -62,6 +62,15 @@ Future<void> main() async {
   final engine = PlayerEngine(settings);
   engine.onProgress = app.saveProgress;
   PipController(engine, settings);
+  // Lecture qui echoue : verifier si le fournisseur refuse une connexion
+  // de plus (meme compte deja utilise sur un autre appareil).
+  engine.addListener(() {
+    if (engine.lastError == null) {
+      app.clearConnectionsFull();
+    } else if (engine.retries >= 2) {
+      app.checkConnections();
+    }
+  });
 
   runApp(
     MultiProvider(

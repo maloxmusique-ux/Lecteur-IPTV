@@ -20,6 +20,7 @@ import 'settings_screen.dart';
 import 'sources_screen.dart';
 import 'subscription_screen.dart';
 import 'widgets/channel_logo.dart';
+import 'widgets/connection_banner.dart';
 import 'widgets/channel_tile.dart';
 import 'widgets/pin_dialog.dart';
 
@@ -515,8 +516,10 @@ class _MobilePreview extends StatelessWidget {
                   ),
                   if (engine.lastError != null)
                     Center(
-                      child: Text(tr('player.reconnecting', [engine.retries]),
-                          style: const TextStyle(color: Colors.white70)),
+                      child: app.connectionsFull
+                          ? const ConnectionLimitBanner()
+                          : Text(tr('player.reconnecting', [engine.retries]),
+                              style: const TextStyle(color: Colors.white70)),
                     ),
                   Positioned(
                     right: 6,
