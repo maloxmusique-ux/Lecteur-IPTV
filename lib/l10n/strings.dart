@@ -3,6 +3,7 @@
 const Map<String, List<String>> kStrings = {
   // ------------------------------------------------------------- Commun
   'common.add': ['Ajouter', 'Add', 'Añadir', 'Adicionar'],
+  'common.back': ['Retour', 'Back', 'Volver', 'Voltar'],
   'common.all': ['Tout', 'All', 'Todo', 'Tudo'],
   'common.cancel': ['Annuler', 'Cancel', 'Cancelar', 'Cancelar'],
   'common.close': ['Fermer', 'Close', 'Cerrar', 'Fechar'],
