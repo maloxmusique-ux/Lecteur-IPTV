@@ -10,7 +10,7 @@ class Brand {
   static const name = 'Canalix';
 
   /// Nom complet (boutiques, recus).
-  static const fullName = 'Canalix IPTV Player';
+  static const fullName = 'Canalix Player';
 
   /// Adresse du service client.
   static const supportEmail = 'support@canalixtv.com';

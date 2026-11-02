@@ -90,7 +90,7 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "Canalix" "\0"
-            VALUE "FileDescription", "Canalix IPTV Player" "\0"
+            VALUE "FileDescription", "Canalix Player" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "canalix" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 Canalix. All rights reserved." "\0"

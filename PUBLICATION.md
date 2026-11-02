@@ -4,6 +4,13 @@ Ce guide donne toutes les réponses à copier-coller dans App Store Connect, la 
 et le Microsoft Partner Center. L'app a été préparée pour respecter les règles en vigueur
 (vérifiées le 1er novembre 2026).
 
+## Positionnement
+
+Canalix est présenté comme un **lecteur vidéo** (nom « Canalix Player »), pas comme un « lecteur IPTV ».
+La fiche reste exacte : elle dit que l'app lit les listes de lecture de l'utilisateur (M3U, HLS, Xtream Codes)
+et qu'aucun contenu n'est fourni. Ne jamais cacher une fonction aux examinateurs : ils testent l'app,
+et une fiche trompeuse est une cause de refus en soi (Apple 2.3, Google « Fiche trompeuse »).
+
 ## Ce qui est déjà prêt dans l'app
 
 | Exigence | Où |
@@ -34,7 +41,7 @@ Branch `main`, dossier `/docs`). Adresse : https://maloxmusique-ux.github.io/Lec
 ### Créer l'app
 App Store Connect > Apps > + > Nouvelle app
 - Plateformes : iOS (et macOS si on publie aussi sur Mac)
-- Nom : **Canalix IPTV Player**
+- Nom : **Canalix Player**
 - Langue principale : Français (Canada)
 - Identifiant de paquet : **com.canalixtv.player** (iPhone ; Android garde com.canalixtv.app)
 - SKU : `canalix-001`
@@ -58,8 +65,8 @@ Achat intégré **non consommable** : `canalix_lifetime`, 39,99 $, nom « Canali
 Programme pour petites entreprises : s'y inscrire (commission 15 % au lieu de 30 %).
 
 ### Fiche de l'app
-- Sous-titre : **Lecteur pour ta liste IPTV**
-- Mots-clés : `iptv,m3u,xtream,lecteur,player,epg,guide tv,live,enregistrement,catch up`
+- Sous-titre : **Lecteur vidéo et guide TV**
+- Mots-clés : `lecteur video,player,m3u,hls,playlist,epg,guide tv,direct,enregistrement,streaming`
 - URL d'assistance : https://maloxmusique-ux.github.io/Lecteur-IPTV/aide.html
 - URL de confidentialité : https://maloxmusique-ux.github.io/Lecteur-IPTV/confidentialite.html
 - CLUF : coller l'URL des Conditions dans « Contrat de licence » :
@@ -67,7 +74,7 @@ Programme pour petites entreprises : s'y inscrire (commission 15 % au lieu de 30
 - Catégorie : Photo et vidéo (secondaire : Divertissement)
 
 **Description (fr) :**
-> Canalix est un lecteur rapide et simple pour ta propre liste IPTV (M3U ou Xtream Codes).
+> Canalix est un lecteur vidéo rapide et simple pour tes propres listes de lecture (M3U, HLS ou Xtream Codes).
 > Regarde le direct en HD, consulte le guide des programmes, mets le direct en pause,
 > reviens en arrière avec le rattrapage, programme des enregistrements et retrouve tes films
 > et séries avec la reprise de lecture.
@@ -94,7 +101,7 @@ Programme pour petites entreprises : s'y inscrire (commission 15 % au lieu de 30
 jamais de « 10 000 chaînes » ou « chaînes gratuites ». C'est la première cause de refus des lecteurs IPTV.
 
 ### Notes pour l'examinateur (App Review Information > Notes)
-> Canalix is a media player for playlists the user already owns (M3U / Xtream Codes).
+> Canalix is a video player for playlists the user already owns (M3U, HLS, Xtream Codes).
 > The app does not provide, sell or link to any content.
 > To test without a playlist: open the Sources tab and tap "Essayer avec la démonstration"
 > (Try the demo). It adds a playlist of royalty-free test streams (Apple BipBop, Blender
@@ -129,7 +136,7 @@ Tester d'abord avec **TestFlight** (achats en mode bac à sable, gratuits).
 
 ### Créer l'app
 Play Console > Créer une app
-- Nom : **Canalix IPTV Player** · Langue : Français (Canada) · App · Payante ? **Gratuite** (abonnement dans l'app)
+- Nom : **Canalix Player** · Langue : Français (Canada) · App · Payante ? **Gratuite** (abonnement dans l'app)
 - Déclarations : respecter les règles, lois d'exportation.
 
 ### Fichier à envoyer
@@ -170,7 +177,7 @@ Produit intégré (unique) : `canalix_lifetime`, 39,99 $.
 - **App d'actualités / gouvernement / finances / santé** : Non.
 
 ### Fiche du Play Store
-- Description courte : **Lecteur rapide pour ta liste IPTV (M3U, Xtream) avec guide TV.**
+- Description courte : **Lecteur vidéo rapide pour tes listes de lecture, avec guide TV.**
 - Description complète : même texte que pour Apple (remplacer « compte Apple » par « compte Google Play »).
 - Catégorie : Lecteurs et éditeurs vidéo.
 - Captures : mêmes règles qu'Apple (démo seulement). Ajouter aussi des captures **Android TV**
@@ -181,7 +188,7 @@ Produit intégré (unique) : `canalix_lifetime`, 39,99 $.
 ## 3. Microsoft Store (Windows)
 
 Microsoft permet d'utiliser son propre paiement (Stripe) pour les apps qui ne sont pas des jeux.
-- Partner Center > Apps et jeux > Nouvelle app > nom « Canalix IPTV Player ».
+- Partner Center > Apps et jeux > Nouvelle app > nom « Canalix Player ».
 - Envoyer `Canalix-windows.zip` empaqueté en MSIX ou un installateur signé (Claude peut le préparer).
 - Déclarer « Paiement tiers : Stripe » dans la section des achats.
 - Politique de confidentialité : même URL.
