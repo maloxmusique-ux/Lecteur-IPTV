@@ -11,6 +11,10 @@ enum BufferMode { fast, balanced, stable }
 /// Qualite preferee pour les flux adaptatifs (HLS).
 enum StreamQuality { best, fhd, hd, low }
 
+/// Traitement du son : auto (volume egalise, dialogues portes), voix
+/// claires, nuit (pas de sons trop forts), original (aucun traitement).
+enum AudioMode { auto, voice, night, original }
+
 /// Format de l'image dans le lecteur.
 enum VideoFit {
   /// Image entiere, bandes noires si besoin.
@@ -66,6 +70,11 @@ class Settings extends ChangeNotifier {
 
   /// Mini-lecteur flottant quand on quitte l'app (mobile).
   bool autoPip = true;
+
+  AudioMode audioMode = AudioMode.auto;
+
+  /// Son ambiophonique envoye tel quel a l'ampli / barre de son (HDMI, optique).
+  bool audioPassthrough = false;
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
@@ -123,6 +132,8 @@ class Settings extends ChangeNotifier {
         'lockAdult': lockAdult,
         'fit': videoFit.index,
         'autoPip': autoPip,
+        'audioMode': audioMode.index,
+        'spdif': audioPassthrough,
       };
 
   void _fromJson(Map<String, dynamic> j) {
@@ -146,5 +157,8 @@ class Settings extends ChangeNotifier {
     lockAdult = v('lockAdult', true);
     videoFit = VideoFit.values[v<int>('fit', 0).clamp(0, VideoFit.values.length - 1)];
     autoPip = v('autoPip', true);
+    audioMode = AudioMode.values[
+        v<int>('audioMode', 0).clamp(0, AudioMode.values.length - 1)];
+    audioPassthrough = v('spdif', false);
   }
 }

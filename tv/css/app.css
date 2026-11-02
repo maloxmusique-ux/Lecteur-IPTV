@@ -67,3 +67,13 @@ input{background:#0B0E13;color:var(--text);border:3px solid var(--line);border-r
 .terms{background:rgba(50,213,131,.1);border:2px solid rgba(50,213,131,.5);border-radius:18px;padding:20px 26px;font-size:24px;line-height:1.55}
 .qr{display:flex;gap:30px;align-items:center;margin-top:24px}
 .qr .code{background:#fff;padding:14px;border-radius:12px}
+
+/* Enregistrements */
+.recs{max-height:720px;overflow:hidden}
+.rec-row{display:flex;gap:14px;align-items:stretch}
+.rec-row .item{flex:1}
+.rec-row .btn{flex:none;align-self:center}
+.rec-dot{color:var(--bad);margin-right:10px}
+.codebox{font-size:64px;letter-spacing:14px;text-align:center;width:420px}
+.storage{height:10px;background:#2a303a;border-radius:5px;overflow:hidden;margin:10px 0 18px}.storage i{display:block;height:100%;background:var(--accent)}
+.storage.low i{background:var(--bad)}

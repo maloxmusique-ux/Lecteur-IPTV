@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n/i18n.dart';
+import '../models/models.dart';
+import '../services/home_recorder.dart';
 import '../services/recorder.dart';
+import 'home_recorder_screen.dart';
 import 'navigation.dart';
 import 'widgets/channel_logo.dart';
 
@@ -21,6 +24,8 @@ class RecordingsView extends StatelessWidget {
         rec.items.where((r) => r.status == RecStatus.scheduled).toList()
           ..sort((a, b) => a.start.compareTo(b.start));
     final done = rec.items.where((r) => r.finished).toList();
+    final home = context.watch<HomeClient>();
+    final remote = home.paired && !context.watch<HomeServer>().enabled;
 
     Widget title(String t) => Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
@@ -55,7 +60,7 @@ class RecordingsView extends StatelessWidget {
           ),
         ],
       ),
-      body: rec.items.isEmpty && rec.rules.isEmpty
+      body: rec.items.isEmpty && rec.rules.isEmpty && !remote
           ? Column(
               children: [
                 const _StorageBar(),
@@ -80,8 +85,12 @@ class RecordingsView extends StatelessWidget {
           : ListView(
               padding: const EdgeInsets.only(bottom: 24),
               children: [
+                if (remote) const _RemoteSection(),
+                if (!remote || rec.items.isNotEmpty) ...[
+                if (remote) title(tr('home.onThisDevice')),
                 const _StorageBar(),
                 const _OnTimeHint(),
+                if (!remote)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                   child: Text(
@@ -110,6 +119,7 @@ class RecordingsView extends StatelessWidget {
                 if (done.isNotEmpty) ...[
                   title(tr('rec.finished')),
                   for (final r in done) _RecTile(r),
+                ],
                 ],
               ],
             ),
@@ -438,6 +448,209 @@ class _RuleTile extends StatelessWidget {
           );
           if (ok == true) rec.removeRule(rule);
         },
+      ),
+    );
+  }
+}
+
+/// Enregistrements faits par l'enregistreur maison.
+class _RemoteSection extends StatefulWidget {
+  const _RemoteSection();
+
+  @override
+  State<_RemoteSection> createState() => _RemoteSectionState();
+}
+
+class _RemoteSectionState extends State<_RemoteSection> {
+  late final HomeClient _home;
+
+  @override
+  void initState() {
+    super.initState();
+    _home = context.read<HomeClient>()..watch();
+  }
+
+  @override
+  void dispose() {
+    _home.unwatch();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final home = context.watch<HomeClient>();
+    final theme = Theme.of(context);
+    final active = home.items.where((r) => r.active).toList();
+    final planned = home.items
+        .where((r) => r.status == RecStatus.scheduled)
+        .toList()
+      ..sort((a, b) => a.start.compareTo(b.start));
+    final done = home.items.where((r) => r.finished).toList()
+      ..sort((a, b) => b.start.compareTo(a.start));
+    final s = home.storage;
+    Widget title(String t) => Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+          child: Text(t, style: theme.textTheme.titleMedium),
+        );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Card(
+          margin: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+          child: ListTile(
+            leading: Icon(
+                home.online ? Icons.dns_rounded : Icons.cloud_off_rounded,
+                color: home.online
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.error),
+            title: Text(tr('home.recorderIs', [home.name])),
+            subtitle: Text(!home.online
+                ? tr('home.offline')
+                : s == null || s.total <= 0
+                    ? tr('home.online')
+                    : '${tr('rec.storageFree', [formatBytes(s.free)])} '
+                        '${tr('rec.storageOf', [formatBytes(s.total)])} · '
+                        '${tr('rec.storageHours', [(s.free / (3 << 30)).floor()])}'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const HomeRecorderScreen())),
+          ),
+        ),
+        if (home.online && home.items.isEmpty && home.rules.isEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Text(tr('home.emptyRemote'),
+                style: theme.textTheme.bodySmall),
+          ),
+        if (home.rules.isNotEmpty) ...[
+          title(tr('rec.series')),
+          for (final r in home.rules)
+            ListTile(
+              leading: const Icon(Icons.repeat_rounded),
+              title: Text(r.title),
+              subtitle: Text(r.mode == RecRepeat.weekly
+                  ? tr('rec.seriesWeekly', [
+                      weekdayLong(r.weekday),
+                      '${(r.minute ~/ 60).toString().padLeft(2, '0')}:${(r.minute % 60).toString().padLeft(2, '0')}',
+                      r.channel,
+                    ])
+                  : tr('rec.seriesEvery', [r.channel])),
+              trailing: TextButton(
+                onPressed: () => home.removeRule(r),
+                child: Text(tr('rec.seriesStop')),
+              ),
+            ),
+        ],
+        if (active.isNotEmpty) ...[
+          title(tr('rec.inProgress')),
+          for (final r in active) _RemoteTile(r),
+        ],
+        if (planned.isNotEmpty) ...[
+          title(tr('rec.planned')),
+          for (final r in planned) _RemoteTile(r),
+        ],
+        if (done.isNotEmpty) ...[
+          title(tr('rec.finished')),
+          for (final r in done) _RemoteTile(r),
+        ],
+      ],
+    );
+  }
+}
+
+class _RemoteTile extends StatelessWidget {
+  final RemoteRec r;
+  const _RemoteTile(this.r);
+
+  @override
+  Widget build(BuildContext context) {
+    final home = context.read<HomeClient>();
+    final theme = Theme.of(context);
+    final status = switch (r.status) {
+      RecStatus.scheduled => tr('rec.st.scheduled', [dayTime(r.start)]),
+      RecStatus.recording =>
+        tr('rec.st.recording', [hm(r.stop), formatBytes(r.bytes)]),
+      RecStatus.done => '${dayTime(r.start)} · ${formatBytes(r.bytes)}',
+      RecStatus.failed => tr('rec.st.failed'),
+      RecStatus.cancelled => tr('rec.st.cancelled'),
+    };
+    final canPlay = r.bytes > 0 &&
+        (r.status == RecStatus.done || r.active);
+    void play() {
+      final c = Channel(
+        id: 'hrec_${r.id}',
+        name: r.title,
+        url: home.fileUrl(r),
+        logo: r.logo,
+        group: r.channel,
+        type: ContentType.movie,
+      );
+      playFullscreen(context, c, [c]);
+    }
+
+    return ListTile(
+      leading: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          ChannelLogo(url: r.logo, name: r.channel),
+          if (r.active)
+            const Positioned(
+              right: -4,
+              top: -4,
+              child: Icon(Icons.fiber_manual_record,
+                  size: 14, color: Colors.redAccent),
+            ),
+        ],
+      ),
+      title: Row(children: [
+        if (r.ruleId.isNotEmpty) ...[
+          Icon(Icons.repeat_rounded, size: 16, color: theme.colorScheme.primary),
+          const SizedBox(width: 6),
+        ],
+        Flexible(
+            child: Text(r.title, maxLines: 1, overflow: TextOverflow.ellipsis)),
+      ]),
+      subtitle: Text(
+          r.title == r.channel ? status : '${r.channel} · $status',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+              color: r.status == RecStatus.failed
+                  ? theme.colorScheme.error
+                  : null)),
+      onTap: canPlay ? play : null,
+      trailing: PopupMenuButton<String>(
+        onSelected: (v) async {
+          if (v == 'stop') {
+            await home.stop(r);
+            return;
+          }
+          if (v == 'delete' && context.mounted) {
+            final ok = await showDialog<bool>(
+              context: context,
+              builder: (c) => AlertDialog(
+                title: Text(tr('rec.deleteQ')),
+                content: Text(r.title),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(c, false),
+                      child: Text(tr('common.cancel'))),
+                  FilledButton(
+                      onPressed: () => Navigator.pop(c, true),
+                      child: Text(tr('common.delete'))),
+                ],
+              ),
+            );
+            if (ok == true) await home.delete(r);
+          }
+        },
+        itemBuilder: (_) => [
+          if (r.active || r.status == RecStatus.scheduled)
+            PopupMenuItem(
+                value: 'stop',
+                child: Text(r.active ? tr('rec.stop') : tr('rec.cancel'))),
+          PopupMenuItem(value: 'delete', child: Text(tr('common.delete'))),
+        ],
       ),
     );
   }

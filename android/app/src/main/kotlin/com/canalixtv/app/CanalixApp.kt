@@ -64,6 +64,10 @@ class CanalixApp : Application() {
                                 RecordingAlarm.set(app, at, call.argument<String>("title") ?: "")
                                 result.success(RecordingAlarm.canExact(app))
                             }
+                            "home" -> {
+                                RecordingAlarm.setHome(app, call.arguments as? Boolean == true)
+                                result.success(true)
+                            }
                             "canExact" -> result.success(RecordingAlarm.canExact(app))
                             "askExact" -> {
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {

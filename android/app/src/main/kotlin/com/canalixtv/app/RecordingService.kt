@@ -28,7 +28,11 @@ class RecordingService : Service() {
         val title = intent?.getStringExtra("title") ?: "Canalix"
         val text = intent?.getStringExtra("text") ?: ""
         val notification = build(title, text)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (Build.VERSION.SDK_INT >= 34) {
+            // "Usage special" : pas de limite de 6 h par jour (enregistrements
+            // longs, enregistreur maison toujours actif).
+            startForeground(ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
         } else {
             startForeground(ID, notification)
@@ -61,10 +65,11 @@ class RecordingService : Service() {
     }
 
     private fun acquire() {
+        wake?.let { if (!it.isHeld) wake = null }
         if (wake == null) {
             val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
             wake = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Canalix:record").apply {
-                setReferenceCounted(false); acquire(6 * 60 * 60 * 1000L)
+                setReferenceCounted(false); acquire(24 * 60 * 60 * 1000L)
             }
         }
         if (wifi == null) {

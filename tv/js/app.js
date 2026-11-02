@@ -21,7 +21,7 @@
 
   // ----------------------------------------------------------- Ecrans
   function show(id) {
-    ['legal', 'setup', 'home', 'settings', 'paywall'].forEach(function (s) {
+    ['legal', 'setup', 'home', 'settings', 'paywall', 'homerec', 'recs', 'recdlg'].forEach(function (s) {
       $(s).classList.toggle('hidden', s !== id);
     });
     S.screen = id;
@@ -31,7 +31,7 @@
       setTimeout(function () { Player.place(previewRect()); }, 0);
     }
     if (id !== 'home') hideOsd();
-    if (id === 'legal' || id === 'setup' || id === 'settings' || id === 'paywall') {
+    if (id !== 'home') {
       setTimeout(function () { SpatialNav.first($(id)); }, 0);
     }
   }
@@ -236,7 +236,11 @@
       else if (code === Keys.DOWN || Keys.is(code, Keys.CH_DOWN)) { if (S.section === 'live') zap(1); }
       else if (code === Keys.ENTER || Keys.is(code, Keys.INFO)) osd();
       else if (Keys.is(code, Keys.PLAY_PAUSE)) Player.pauseToggle();
+      else if (Keys.is(code, Keys.RECORD) && S.section === 'live') openRecord(S.playing);
       return;
+    }
+    if (Keys.is(code, Keys.RECORD) && S.section === 'live') {
+      return openRecord(S.playing || S.items[S.item]);
     }
     if (Keys.is(code, Keys.CH_UP)) return zap(-1);
     if (Keys.is(code, Keys.CH_DOWN)) return zap(1);
@@ -282,6 +286,8 @@
       { k: 'source', title: t('set.source'), sub: S.source ? (S.source.server || S.source.url) : '' },
       { k: 'sub', title: t('set.sub'), sub: subText(info) },
       { k: 'lang', title: t('set.lang'), sub: LANG === 'fr' ? 'Français' : 'English' },
+      { k: 'recs', title: t('recs.title'), sub: Home.paired() ? t('home.linked', [Home.get().name]) : t('home.notLinked') },
+      { k: 'homerec', title: t('home.title'), sub: Home.paired() ? t('home.linked', [Home.get().name]) : t('home.why') },
       { k: 'reload', title: t('set.reload'), sub: t('set.reloadSub') },
       { k: 'help', title: t('set.help'), sub: cfg.pages + '/aide.html' },
     ];
@@ -314,9 +320,203 @@
     else if (k === 'sub') openPaywall();
     else if (k === 'lang') { LANG = LANG === 'fr' ? 'en' : 'fr'; Store.set('lang', LANG); applyI18n(); openSettings(); }
     else if (k === 'reload') location.reload();
+    else if (k === 'homerec') openHomeRec();
+    else if (k === 'recs') Home.paired() ? openRecs() : openHomeRec();
     else if (k === 'help') toast(cfg.pages + '/aide.html', 6000);
     else if (k === 'cancel') License.cancel().then(function () { toast(subText(License.info()), 5000); openSettings(); });
     else if (k === 'resume') License.resume().then(function () { openSettings(); });
+  }
+
+  function backHome() {
+    show('home');
+    // Une lecture d'enregistrement a pu remplacer la chaine en apercu.
+    var cur = Player.current();
+    if (S.playing && (!cur || cur.id !== S.playing.id)) Player.play(S.playing, previewRect());
+    else Player.restore();
+    renderTabs(); renderItems();
+  }
+
+  // ----------------------------------------------------------- Enregistreur maison
+  function menu(box, items) {
+    box.innerHTML = items.map(function (i) {
+      return '<div class="item focusable' + (i.cls ? ' ' + i.cls : '') + '" data-k="' + esc(i.k) + '"><span class="name">' +
+        esc(i.title) + (i.sub ? '<span class="sub">' + esc(i.sub) + '</span>' : '') + '</span></div>';
+    }).join('');
+    Array.prototype.forEach.call(box.querySelectorAll('.item'), function (el, n) {
+      el.onclick = function () { items[n].run(); };
+    });
+  }
+
+  function openHomeRec(found, scanning) {
+    Player.suspend();
+    var body = $('homerec-body'), h = Home.get();
+    var html = '<p class="lead">' + esc(t('home.intro')) + '</p>';
+    if (h) {
+      html += '<p>' + esc(t('home.linked', [h.name])) + ' <span class="muted small">(' + esc(h.host) + ')</span></p>';
+    }
+    html += '<div class="menu" id="homerec-menu"></div>';
+    html += '<div id="homerec-code" class="hidden"><p id="homerec-for"></p><div class="row">' +
+      '<input class="focusable codebox" id="homerec-input" maxlength="6" inputmode="numeric" placeholder="000000">' +
+      '<button class="btn primary focusable" id="homerec-ok">' + esc(t('home.connect')) + '</button></div>' +
+      '<p class="muted small">' + esc(t('home.codeWhere')) + '</p></div>';
+    body.innerHTML = html;
+    var items = [];
+    if (h) {
+      items.push({ k: 'recs', title: t('recs.title'), run: openRecs });
+      items.push({ k: 'forget', title: t('home.forget'), cls: 'btn danger', run: function () { Home.forget(); openHomeRec(); } });
+    }
+    items.push({ k: 'scan', title: scanning ? t('home.searching') : t('home.search'), sub: t('home.searchSub'), run: function () {
+      if (scanning) return;
+      openHomeRec([], true);
+      Home.scan().then(function (list) {
+        if (S.screen !== 'homerec') return;
+        openHomeRec(list, false);
+        if (!list.length) toast(t('home.none'), 6000);
+      });
+    } });
+    (found || []).forEach(function (f) {
+      items.push({ k: 'f' + f.host, title: f.name, sub: f.host, run: function () { askCode(f.host, f.name); } });
+    });
+    items.push({ k: 'manual', title: t('home.manual'), sub: '192.168.1.20', run: function () {
+      var ip = (window.prompt && window.prompt(t('home.manual'), '192.168.1.')) || '';
+      if (/^\d+\.\d+\.\d+\.\d+$/.test(ip.trim())) askCode(ip.trim(), ip.trim());
+    } });
+    menu($('homerec-menu'), items);
+    show('homerec');
+    if (found && found.length) SpatialNav.focus($('homerec-menu').querySelectorAll('.item')[h ? 3 : 1]);
+  }
+
+  function askCode(host, name) {
+    $('homerec-code').classList.remove('hidden');
+    $('homerec-for').textContent = t('home.codeFor', [name]);
+    $('homerec-ok').onclick = function () {
+      var code = $('homerec-input').value.replace(/\D/g, '');
+      if (code.length !== 6) return toast(t('home.badCode'));
+      Home.pair(host, name, code).then(function () {
+        toast(t('home.linked', [Home.get().name]), 4000);
+        openRecs();
+      }).catch(function () { toast(t('home.badCode'), 5000); });
+    };
+    SpatialNav.focus($('homerec-input'));
+    $('homerec-input').focus();
+  }
+
+  var recsData = null, recsTimer = null;
+  function openRecs() {
+    Player.suspend();
+    show('recs');
+    $('recs-info').textContent = t('setup.loading');
+    $('recs-list').innerHTML = '';
+    loadRecs(true);
+    clearInterval(recsTimer);
+    recsTimer = setInterval(function () { if (S.screen === 'recs' && !Player.isFull()) loadRecs(false); else if (S.screen !== 'recs') clearInterval(recsTimer); }, 10000);
+  }
+
+  function loadRecs(focus) {
+    Home.list().then(function (j) { recsData = j; renderRecs(focus); }).catch(function () {
+      $('recs-info').textContent = t('home.offline', [(Home.get() || {}).name || '']);
+    });
+  }
+
+  function gb(b) { return (b / 1073741824).toFixed(b < 10737418240 ? 1 : 0).replace('.', LANG === 'fr' ? ',' : '.') + (LANG === 'fr' ? ' Go' : ' GB'); }
+  function size(b) { return b >= 1073741824 ? gb(b) : Math.max(1, Math.round(b / 1048576)) + (LANG === 'fr' ? ' Mo' : ' MB'); }
+  function dayTime(ms) { var d = new Date(ms); return d.toLocaleDateString(LANG, { weekday: 'short', day: 'numeric', month: 'short' }) + ' ' + hm(ms); }
+
+  function renderRecs(focus) {
+    var j = recsData || { items: [] }, st = j.storage;
+    var info = t('home.linked', [j.name || Home.get().name]);
+    if (st && st.total > 0) {
+      var low = st.free < 2147483648 || st.free / st.total < 0.05;
+      info += ' · ' + t('recs.free', [gb(st.free), gb(st.total), Math.floor(st.free / 3221225472)]);
+      $('recs-info').innerHTML = esc(info) + '<div class="storage' + (low ? ' low' : '') + '"><i style="width:' + Math.round((1 - st.free / st.total) * 100) + '%"></i></div>';
+    } else $('recs-info').textContent = info;
+    var order = { recording: 0, scheduled: 1, done: 2, failed: 3, cancelled: 4 };
+    var list = (j.items || []).slice().sort(function (a, b) {
+      return (order[a.status] - order[b.status]) || (a.status === 'scheduled' ? a.start - b.start : b.start - a.start);
+    }).filter(function (r) { return r.status !== 'cancelled'; });
+    if (!list.length) { $('recs-list').innerHTML = '<p class="muted">' + esc(t('recs.empty')) + '</p>'; return; }
+    var focusedId = SpatialNav.current && SpatialNav.current.getAttribute('data-id');
+    $('recs-list').innerHTML = list.slice(0, 40).map(function (r) {
+      var st = r.status === 'recording' ? '<span class="rec-dot">●</span>' + t('recs.recording', [hm(r.stop), size(r.bytes)])
+        : r.status === 'scheduled' ? t('recs.scheduled', [dayTime(r.start)])
+        : r.status === 'done' ? dayTime(r.start) + ' · ' + size(r.bytes)
+        : t('recs.failed');
+      var act = r.status === 'scheduled' ? t('recs.cancel') : r.status === 'recording' ? t('recs.stop') : t('recs.delete');
+      return '<div class="rec-row"><div class="item focusable" data-id="' + esc(r.id) + '" data-a="play"><span class="name">' + esc(r.title) +
+        '<span class="sub">' + esc(r.channel) + ' · ' + st + '</span></span></div>' +
+        '<button class="btn focusable" data-id="' + esc(r.id) + '" data-a="act">' + esc(act) + '</button></div>';
+    }).join('');
+    Array.prototype.forEach.call($('recs-list').querySelectorAll('.focusable'), function (el) {
+      el.onclick = function () {
+        var r = list.filter(function (x) { return x.id === el.getAttribute('data-id'); })[0];
+        if (r) recAction(r, el.getAttribute('data-a'));
+      };
+    });
+    var again = focusedId && $('recs-list').querySelector('[data-id="' + focusedId + '"]');
+    if (focus || !again) SpatialNav.first($('recs'));
+    else SpatialNav.focus(again);
+  }
+
+  var confirmAt = 0, confirmId = '';
+  function recAction(r, a) {
+    if (a === 'play') {
+      if (!(r.bytes > 0) || (r.status !== 'done' && r.status !== 'recording')) return toast(t('recs.notYet'));
+      Player.play({ id: 'rec_' + r.id, name: r.title, url: Home.fileUrl(r) }, null);
+      return;
+    }
+    // Deuxieme appui pour confirmer.
+    if (confirmId !== r.id || Date.now() - confirmAt > 3000) {
+      confirmId = r.id; confirmAt = Date.now();
+      return toast(t('recs.confirm'), 3000);
+    }
+    confirmId = '';
+    var p = r.status === 'scheduled' || r.status === 'recording' ? Home.stop(r.id) : Home.del(r.id);
+    p.then(function () { loadRecs(false); }).catch(function () { toast(t('home.offline', [Home.get().name])); });
+  }
+
+  /** Enregistrer la chaine : emission en cours, suivante, ou duree fixe. */
+  function openRecord(c) {
+    if (!c) return;
+    if (!Home.paired()) {
+      Player.suspend();
+      $('recdlg-title').textContent = t('rec.title', [c.name]);
+      $('recdlg-sub').textContent = t('home.needLink');
+      menu($('recdlg-menu'), [
+        { k: 'link', title: t('home.title'), sub: t('home.why'), run: openHomeRec },
+        { k: 'back', title: t('common.back'), run: backHome },
+      ]);
+      return show('recdlg');
+    }
+    Player.suspend();
+    function sendNow(min, title) {
+      Home.now(S.source, c, min, title).then(function () { toast(t('rec.sent', [Home.get().name]), 4000); backHome(); })
+        .catch(function () { toast(t('home.offline', [Home.get().name]), 5000); });
+    }
+    function build(e) {
+      var now = e[0], next = e[1], items = [], n = Date.now();
+      if (now && now.stop > n) {
+        items.push({ k: 'cur', title: t('rec.current', [now.title]), sub: t('rec.until', [hm(now.stop)]), run: function () {
+          Home.schedule(S.source, c, now).then(function () { toast(t('rec.sent', [Home.get().name]), 4000); backHome(); })
+            .catch(function () { toast(t('home.offline', [Home.get().name]), 5000); });
+        } });
+      }
+      if (next && next.start > n) {
+        items.push({ k: 'next', title: t('rec.next', [next.title]), sub: hm(next.start) + ' – ' + hm(next.stop), run: function () {
+          Home.schedule(S.source, c, next).then(function () { toast(t('rec.planned', [Home.get().name]), 4000); backHome(); })
+            .catch(function () { toast(t('home.offline', [Home.get().name]), 5000); });
+        } });
+      }
+      [[30, '30 min'], [60, '1 h'], [120, '2 h'], [240, '4 h']].forEach(function (d) {
+        items.push({ k: 'd' + d[0], title: t('rec.for', [d[1]]), run: function () { sendNow(d[0]); } });
+      });
+      items.push({ k: 'back', title: t('common.back'), run: backHome });
+      $('recdlg-title').textContent = t('rec.title', [c.name]);
+      $('recdlg-sub').textContent = t('rec.where', [Home.get().name]);
+      menu($('recdlg-menu'), items);
+      show('recdlg');
+    }
+    if (S.epg[c.id]) build(S.epg[c.id]);
+    else Api.nowNext(S.source, c).then(function (e) { S.epg[c.id] = e; build(e); });
   }
 
   // ----------------------------------------------------------- Forfaits
@@ -410,10 +610,18 @@
     if (S.screen === 'home') { homeKey(code); e.preventDefault(); return; }
     var root = $(S.screen);
     if (Keys.is(code, Keys.BACK) && !inInput) {
-      if (S.screen === 'settings') { show('home'); Player.restore(); renderTabs(); renderItems(); }
+      if (S.screen === 'recs' && Player.isFull()) { Player.stop(); show('recs'); renderRecs(); }
+      else if (S.screen === 'settings') backHome();
+      else if (S.screen === 'homerec' || S.screen === 'recs') openSettings();
+      else if (S.screen === 'recdlg') backHome();
       else if (S.screen === 'paywall') leavePaywall();
       else if (S.screen === 'setup' && S.catalog) show('home');
       else askExit();
+      e.preventDefault();
+      return;
+    }
+    if (S.screen === 'recs' && Player.isFull()) {
+      if (Keys.is(code, Keys.PLAY_PAUSE) || code === Keys.ENTER) Player.pauseToggle();
       e.preventDefault();
       return;
     }
@@ -452,6 +660,6 @@
   function hm(ms) { var d = new Date(ms); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
 
   // Pour les tests automatiques.
-  window.__canalix = { S: S, homeKey: homeKey, openPaywall: openPaywall, openSettings: openSettings };
+  window.__canalix = { S: S, homeKey: homeKey, openPaywall: openPaywall, openSettings: openSettings, openRecs: openRecs, openHomeRec: openHomeRec, openRecord: openRecord };
   start();
 })();

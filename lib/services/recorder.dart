@@ -323,6 +323,7 @@ class RecordingService extends ChangeNotifier {
       ..sort((a, b) => a.start.compareTo(b.start));
     if (Platform.isWindows) {
       _syncWindowsTask(planned.isEmpty ? null : planned.first);
+      _syncWindowsAutostart();
       return;
     }
     String? state;
@@ -343,9 +344,18 @@ class RecordingService extends ChangeNotifier {
         'active': false,
       };
     }
+    if (args == null && keepAlive) {
+      state = 'home';
+      args = {
+        'title': tr('home.bgTitle'),
+        'text': tr('home.bgText'),
+        'active': true,
+      };
+    }
     if (state == _bgState) return;
     _bgState = state;
     try {
+      await _bg.invokeMethod('home', keepAlive);
       await _bg.invokeMethod('alarm', {
         'at': planned.isEmpty ? 0 : planned.first.start,
         'title': planned.isEmpty ? '' : planned.first.title,
@@ -374,6 +384,28 @@ class RecordingService extends ChangeNotifier {
     try {
       await _bg.invokeMethod('askExact');
     } catch (_) {}
+  }
+
+  bool? _autostart;
+
+  /// Enregistreur maison sur Windows : Canalix demarre (reduit) a
+  /// l'ouverture de la session.
+  Future<void> _syncWindowsAutostart() async {
+    if (_autostart == keepAlive) return;
+    _autostart = keepAlive;
+    const key = r'HKCU\Software\Microsoft\Windows\CurrentVersion\Run';
+    try {
+      if (keepAlive) {
+        await Process.run('reg', [
+          'add', key, '/v', 'Canalix', '/t', 'REG_SZ', '/d',
+          '"${Platform.resolvedExecutable}" --background', '/f'
+        ]);
+      } else {
+        await Process.run('reg', ['delete', key, '/v', 'Canalix', '/f']);
+      }
+    } catch (_) {
+      _autostart = null;
+    }
   }
 
   static const _winTask = r'Canalix\ProchainEnregistrement';
@@ -673,6 +705,20 @@ class RecordingService extends ChangeNotifier {
       notifyListeners();
     }
     return true;
+  }
+
+  /// Diffusion d'une serie trouvee dans le guide d'un autre ecran
+  /// (enregistreur maison).
+  bool addOccurrence(RecRule rule, Programme p) =>
+      _occurrence(rule, p.start, p.stop, p.title.isEmpty ? rule.title : p.title);
+
+  /// Enregistreur maison : garde l'appareil eveille en permanence.
+  bool keepAlive = false;
+  void setKeepAlive(bool v) {
+    if (keepAlive == v) return;
+    keepAlive = v;
+    _bgState = null;
+    _syncBackground();
   }
 
   /// Enregistre tout de suite pendant [duration].

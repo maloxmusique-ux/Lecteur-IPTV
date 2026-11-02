@@ -82,6 +82,32 @@
   </div>
 </section>
 
+<!-- Enregistreur maison : relier la tele -->
+<section id="homerec" class="screen hidden">
+  <div class="panel wide">
+    <h1 data-t="home.title"></h1>
+    <div id="homerec-body"></div>
+  </div>
+</section>
+
+<!-- Enregistrements (sur l'enregistreur maison) -->
+<section id="recs" class="screen hidden">
+  <div class="panel wide">
+    <h1 data-t="recs.title"></h1>
+    <p class="muted small" id="recs-info"></p>
+    <div class="menu recs" id="recs-list"></div>
+  </div>
+</section>
+
+<!-- Enregistrer la chaine choisie -->
+<section id="recdlg" class="screen hidden">
+  <div class="panel">
+    <h1 id="recdlg-title"></h1>
+    <p class="muted" id="recdlg-sub"></p>
+    <div class="menu" id="recdlg-menu"></div>
+  </div>
+</section>
+
 <!-- Forfaits -->
 <section id="paywall" class="screen hidden">
   <div class="panel wide">
@@ -108,6 +134,7 @@
 <script src="js/store.js"></script>
 <script src="js/api.js"></script>
 <script src="js/license.js"></script>
+<script src="js/home.js"></script>
 <script src="js/player.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/app.js"></script>

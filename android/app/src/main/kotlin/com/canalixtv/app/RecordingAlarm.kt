@@ -51,6 +51,14 @@ object RecordingAlarm {
         }
     }
 
+    /** Enregistreur maison : redemarrer avec l'appareil. */
+    fun setHome(ctx: Context, on: Boolean) {
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("home", on).apply()
+    }
+
+    fun isHome(ctx: Context): Boolean =
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("home", false)
+
     fun title(ctx: Context): String =
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_TITLE, "") ?: ""
 }
@@ -75,5 +83,19 @@ class AlarmReceiver : BroadcastReceiver() {
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
         RecordingAlarm.schedule(ctx)
+        // Enregistreur maison : on se remet en service tout de suite.
+        if (RecordingAlarm.isHome(ctx) &&
+            (intent.action == Intent.ACTION_BOOT_COMPLETED ||
+                intent.action == Intent.ACTION_MY_PACKAGE_REPLACED)) {
+            val i = Intent(ctx, RecordingService::class.java)
+                .putExtra("title", "Canalix")
+                .putExtra("text", "")
+                .putExtra("active", true)
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ctx.startForegroundService(i)
+                else ctx.startService(i)
+            } catch (_: Exception) {}
+            (ctx.applicationContext as? android.app.Application)?.let { CanalixApp.engine(it) }
+        }
     }
 }

@@ -20,6 +20,8 @@ import 'subscription_screen.dart';
 import '../services/license.dart';
 import '../services/proxy.dart';
 import 'vpn_screen.dart';
+import 'home_recorder_screen.dart';
+import '../services/home_recorder.dart';
 import 'widgets/pin_dialog.dart';
 
 /// Langues proposees pour l'audio et les sous-titres (code -> alias mpv).
@@ -133,6 +135,12 @@ class SettingsView extends StatelessWidget {
       (StreamQuality.hd, tr('quality.hd')),
       (StreamQuality.low, tr('quality.low')),
     ];
+    final soundOptions = <(AudioMode, String)>[
+      (AudioMode.auto, tr('sound.auto')),
+      (AudioMode.voice, tr('sound.voice')),
+      (AudioMode.night, tr('sound.night')),
+      (AudioMode.original, tr('sound.original')),
+    ];
     final audioOptions = <(String, String)>[
       ('', tr('settings.langDefault')),
       for (final c in _mediaLangs.keys) (c, _mediaLangName(c)),
@@ -245,6 +253,26 @@ class SettingsView extends StatelessWidget {
               if (v != null) s.update((x) => x.quality = v);
             },
           ),
+          ListTile(
+            leading: const Icon(Icons.graphic_eq_rounded),
+            title: Text(tr('sound.title')),
+            subtitle: Text(s.audioPassthrough
+                ? tr('sound.passOn')
+                : '${label(soundOptions, s.audioMode)}\n${tr('sound.hint.${s.audioMode.name}')}'),
+            isThreeLine: !s.audioPassthrough,
+            onTap: () async {
+              final v = await pick(tr('sound.title'), soundOptions, s.audioMode);
+              if (v != null) s.update((x) => x.audioMode = v);
+            },
+          ),
+          if (!Platform.isIOS)
+            SwitchListTile(
+              secondary: const Icon(Icons.surround_sound_rounded),
+              title: Text(tr('sound.pass')),
+              subtitle: Text(tr('sound.passHint')),
+              value: s.audioPassthrough,
+              onChanged: (v) => s.update((x) => x.audioPassthrough = v),
+            ),
           SwitchListTile(
             secondary: const Icon(Icons.memory_rounded),
             title: Text(tr('settings.hwdec')),
@@ -333,6 +361,22 @@ class SettingsView extends StatelessWidget {
 
           // ------------------------------------------ Enregistrements
           section(tr('tab.recordings')),
+          Builder(builder: (context) {
+            final hs = context.watch<HomeServer>();
+            final hc = context.watch<HomeClient>();
+            return ListTile(
+              leading: const Icon(Icons.dns_rounded),
+              title: Text(tr('home.title')),
+              subtitle: Text(hs.enabled
+                  ? tr('home.statusServer', [hs.code])
+                  : hc.paired
+                      ? tr('home.statusClient', [hc.name])
+                      : tr('home.statusOff')),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const HomeRecorderScreen())),
+            );
+          }),
           FutureBuilder<Directory>(
             future: context.read<RecordingService>().folder(),
             builder: (context, snap) => ListTile(

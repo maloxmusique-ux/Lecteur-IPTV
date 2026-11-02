@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 
 import 'l10n/i18n.dart';
 import 'player/player_engine.dart';
+import 'services/home_recorder.dart';
 import 'services/license.dart';
 import 'services/migrate.dart';
 import 'services/pip.dart';
@@ -52,6 +53,12 @@ Future<void> main(List<String> args) async {
   await recorder.init();
   final license = LicenseService();
   await license.init();
+  // Enregistreur maison (cet appareil enregistre pour les autres ecrans,
+  // ou cet ecran envoie ses enregistrements a l'enregistreur).
+  final homeServer = HomeServer(recorder);
+  await homeServer.init();
+  final homeClient = HomeClient();
+  await homeClient.init();
   // Les series "chaque diffusion" suivent le guide de la source active.
   var lastGuide = app.epg;
   recorder.updateGuide(app.active?.id ?? '', app.epg);
@@ -59,6 +66,7 @@ Future<void> main(List<String> args) async {
     if (identical(app.epg, lastGuide)) return;
     lastGuide = app.epg;
     recorder.updateGuide(app.active?.id ?? '', app.epg);
+    homeClient.pushGuide(app.active?.id ?? '', app.epg, app.channelById);
   });
   final engine = PlayerEngine(settings);
   engine.onProgress = app.saveProgress;
@@ -75,7 +83,9 @@ Future<void> main(List<String> args) async {
 
   // Windows : ouvert tout seul par la tache planifiee pour un
   // enregistrement. On se referme apres si personne n'a touche l'app.
-  if (Platform.isWindows && args.contains('--background')) {
+  if (Platform.isWindows &&
+      args.contains('--background') &&
+      !homeServer.enabled) {
     _autoQuitWhenIdle(recorder);
   }
   runApp(
@@ -87,6 +97,8 @@ Future<void> main(List<String> args) async {
         ChangeNotifierProvider.value(value: reminders),
         ChangeNotifierProvider.value(value: recorder),
         ChangeNotifierProvider.value(value: license),
+        ChangeNotifierProvider.value(value: homeServer),
+        ChangeNotifierProvider.value(value: homeClient),
       ],
       child: const CanalixApp(),
     ),

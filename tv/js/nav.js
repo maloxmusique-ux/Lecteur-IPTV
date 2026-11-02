@@ -5,6 +5,7 @@ var Keys = {
   CH_UP: [427, 33], CH_DOWN: [428, 34],
   PLAY_PAUSE: [10252, 415, 19, 32],
   INFO: [457, 73],
+  RECORD: [416, 417, 403, 82],
   is: function (code, k) { return Array.isArray(k) ? k.indexOf(code) >= 0 : code === k; },
 };
 
@@ -12,7 +13,7 @@ var Keys = {
   // Samsung : les touches speciales doivent etre demandees.
   try {
     if (window.tizen && tizen.tvinputdevice) {
-      ['ChannelUp', 'ChannelDown', 'MediaPlayPause', 'MediaPlay', 'MediaPause', 'Info', 'ColorF0Red']
+      ['ChannelUp', 'ChannelDown', 'MediaPlayPause', 'MediaPlay', 'MediaPause', 'Info', 'ColorF0Red', 'MediaRecord']
         .forEach(function (k) { try { tizen.tvinputdevice.registerKey(k); } catch (e) {} });
     }
   } catch (e) {}

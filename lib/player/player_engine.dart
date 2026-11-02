@@ -125,6 +125,28 @@ class PlayerEngine extends ChangeNotifier {
   }
 
   String? _defaultHwdec;
+  String? _lastAf;
+
+  /// Filtres audio selon le mode choisi. Les versions de libmpv livrees
+  /// sur Android, Windows et Apple n'ont que equalizer et volume : on fait
+  /// tout avec eux (verifie dans les bibliotheques publiees).
+  static String audioFilter(AudioMode m) {
+    String eq(int f, double w, double g) => 'equalizer=f=$f:t=q:w=$w:g=$g';
+    return switch (m) {
+      // Plus de presence : grondement retire, voix et details un peu portes.
+      AudioMode.auto => 'lavfi=[${eq(40, 1, -3)},${eq(250, 1, -1)},'
+          '${eq(3000, 1.4, 2.5)},${eq(9000, 1, 1)},volume=volume=-1dB]',
+      // Voix au premier plan (nouvelles, sport, films ou on entend mal).
+      AudioMode.voice => 'lavfi=[${eq(60, 0.8, -8)},${eq(200, 1, -4)},'
+          '${eq(1200, 1.2, 3)},${eq(2800, 1.2, 6)},${eq(8000, 1, 1)},'
+          'volume=volume=-1dB]',
+      // Nuit : basses et grondements (explosions, musique) tres reduits,
+      // voix gardees : on peut baisser le volume sans perdre les dialogues.
+      AudioMode.night => 'lavfi=[${eq(50, 0.7, -12)},${eq(120, 1, -8)},'
+          '${eq(300, 1, -3)},${eq(2500, 1.2, 5)},volume=volume=-1dB]',
+      AudioMode.original => '',
+    };
+  }
   String? _cacheDir;
 
   Future<void> _tune() async {
@@ -196,6 +218,19 @@ class PlayerEngine extends ChangeNotifier {
       'alang': s.audioLangs,
       'slang': s.subLangs,
     };
+    // ---- Son
+    // 5.1 -> stereo sans perte de volume, avec les basses (LFE) gardees.
+    opts['audio-normalize-downmix'] = 'yes';
+    opts['audio-swresample-o'] = 'lfe_mix_level=0.6';
+    opts['audio-pitch-correction'] = 'yes';
+    // Ampli / barre de son : Dolby et DTS envoyes tels quels.
+    opts['audio-spdif'] = s.audioPassthrough ? 'ac3,eac3,dts,dts-hd,truehd' : '';
+    opts['audio-channels'] = s.audioPassthrough ? 'auto' : 'auto-safe';
+    final af = s.audioPassthrough ? '' : audioFilter(s.audioMode);
+    if (af != _lastAf) {
+      _lastAf = af;
+      opts['af'] = af;
+    }
     for (final e in opts.entries) {
       try {
         await p.setProperty(e.key, e.value);

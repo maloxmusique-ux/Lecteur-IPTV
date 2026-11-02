@@ -171,9 +171,14 @@ Produit intégré (unique) : `canalix_lifetime`, 39,99 $.
   - Achats intégrés (historique d'achats) : collecté, non partagé, fonctionnalité.
   - Données chiffrées en transit : **Oui**. Possibilité de demander la suppression : **Oui**
     (lien : page d'aide, section « Supprimer mes données »).
-- **Services au premier plan** : type **dataSync** utilisé pour les enregistrements programmés
-  (copie du flux dans un fichier pendant que l'app est en arrière-plan). Fournir une courte vidéo
-  (écran Enregistrements > un enregistrement en cours avec la notification).
+- **Services au premier plan** : type **specialUse** (Android 14 et plus ; dataSync avant).
+  Justification à coller : « Magnétoscope personnel. L'utilisateur programme lui-même
+  l'enregistrement d'une émission ; le service copie le flux dans un fichier sur l'appareil,
+  souvent pendant plusieurs heures, écran éteint. Option « Enregistreur maison » : l'appareil reste
+  prêt à enregistrer pour les autres écrans de la maison sur le réseau local. Notification visible
+  en permanence, l'utilisateur peut tout arrêter. dataSync ne convient pas (limite de 6 h par
+  jour). » Fournir une courte vidéo (onglet Enregistrements > un enregistrement en cours avec la
+  notification, puis Réglages > Enregistreur maison).
 - **App d'actualités / gouvernement / finances / santé** : Non.
 
 ### Fiche du Play Store

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../l10n/i18n.dart';
 import '../models/models.dart';
+import '../services/home_recorder.dart';
 import '../services/recorder.dart';
 import '../services/reminders.dart';
 import '../services/xtream_api.dart';
@@ -84,7 +85,13 @@ class _ProgrammeSheet extends StatelessWidget {
     final xtream = source?.kind == SourceKind.xtream;
     final archive = xtream && inArchive(c, p, now);
     final hasRem = reminders.has(sourceId, c, p);
-    final scheduled = recorder.isScheduled(sourceId, c, p);
+    final home = context.watch<HomeClient>();
+    // Ecran relie a un enregistreur maison : les enregistrements de direct
+    // partent la-bas (il enregistre meme si cet ecran est eteint).
+    final remote = home.paired && !context.read<HomeServer>().enabled;
+    final scheduled = remote
+        ? home.isScheduled(sourceId, c, p)
+        : recorder.isScheduled(sourceId, c, p);
     final queue = app.visibleItems(ContentType.live).toList();
 
     void close() => Navigator.pop(context);
@@ -103,7 +110,12 @@ class _ProgrammeSheet extends StatelessWidget {
 
     Future<void> toggleRecord() async {
       if (source == null) return;
-      if (scheduled) {
+      if (scheduled && remote) {
+        for (final r in home.covering(sourceId, c, p).toList()) {
+          await home.stop(r);
+        }
+        if (host.mounted) toast(host, tr('rec.cancelled'));
+      } else if (scheduled) {
         for (final r in recorder.items) {
           if (r.channel.id == c.id &&
               r.kind == RecKind.live &&
@@ -117,7 +129,15 @@ class _ProgrammeSheet extends StatelessWidget {
       } else {
         final mode = await askRepeat(context, c, p);
         if (mode == null || !host.mounted) return;
-        if (mode == RecRepeat.once) {
+        if (remote) {
+          final ok = mode == RecRepeat.once
+              ? await home.schedule(source, c, p)
+              : await home.addRule(source, c, p, mode, app.epg);
+          if (host.mounted) {
+            toast(host,
+                ok ? tr('home.sent', [home.name]) : tr('home.sendFailed', [home.name]));
+          }
+        } else if (mode == RecRepeat.once) {
           recorder.scheduleProgramme(source, c, p);
           toast(host, live ? tr('rec.started') : tr('rec.scheduled'));
         } else {
@@ -317,8 +337,17 @@ Future<void> recordNowDialog(BuildContext context, Channel c) async {
       ],
     ),
   );
-  if (pick == null) return;
+  if (pick == null || !context.mounted) return;
   final ch = choices[pick];
+  final home = context.read<HomeClient>();
+  if (home.paired && !context.read<HomeServer>().enabled) {
+    final ok = await home.recordNow(source, c, ch.$2, title: ch.$3);
+    if (context.mounted) {
+      toast(context,
+          ok ? tr('home.sent', [home.name]) : tr('home.sendFailed', [home.name]));
+    }
+    return;
+  }
   recorder.recordNow(source, c, ch.$2, title: ch.$3);
   if (context.mounted) toast(context, tr('rec.started'));
 }
