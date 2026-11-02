@@ -131,7 +131,7 @@ class CanalixApp extends StatelessWidget {
       ),
       // La cle force la reconstruction complete quand la langue change.
       home: KeyedSubtree(
-        key: ValueKey(lang),
+        key: ValueKey('$lang-${context.watch<AppState>().reloadCount.value}'),
         child: !legal
             ? const LegalGate()
             : !chosen

@@ -224,6 +224,13 @@ class _MoreView extends StatelessWidget {
             title: Text(tr('tab.settings')),
             onTap: () => push(const SettingsView()),
           ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.restart_alt_rounded),
+            title: Text(tr('reload.title')),
+            subtitle: Text(tr('reload.hint')),
+            onTap: () => reloadApp(context),
+          ),
         ],
       ),
     );
@@ -384,80 +391,27 @@ class _BrowseViewState extends State<BrowseView> {
             )
           else
             header,
-          _GroupChips(
-            type: widget.type,
-            groups: groups,
-            selected: _group,
-            onSelect: (g) => _selectGroup(app, g),
-          ),
-          const SizedBox(height: 4),
-          Expanded(child: list),
-        ],
-      ),
-    );
-  }
-}
-
-/// Categories sur telephone : bouton "toutes les categories" (liste avec
-/// recherche, pratique quand il y a des dizaines de pays) + puces.
-class _GroupChips extends StatelessWidget {
-  final ContentType type;
-  final List<String> groups;
-  final String? selected;
-  final ValueChanged<String?> onSelect;
-
-  const _GroupChips({
-    required this.type,
-    required this.groups,
-    required this.selected,
-    required this.onSelect,
-  });
-
-  Future<void> _openSheet(BuildContext context) async {
-    final g = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (ctx) => _GroupSheet(type: type, groups: groups, selected: selected),
-    );
-    if (g != null) onSelect(g == '' ? null : g);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final app = context.watch<AppState>();
-    final scheme = Theme.of(context).colorScheme;
-    return SizedBox(
-      height: 44,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: groups.length + 2,
-        itemBuilder: (_, i) {
-          if (i == 0) {
-            return Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: ActionChip(
-                avatar: Icon(Icons.list_rounded, size: 18, color: scheme.primary),
-                label: Text(selected == null
-                    ? tr('browse.categories')
-                    : AppState.groupLabel(selected!)),
-                onPressed: () => _openSheet(context),
-              ),
-            );
-          }
-          final g = i == 1 ? null : groups[i - 2];
-          final locked = g != null && app.isLockedGroup(type, g) && !app.unlocked;
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 3),
-            child: ChoiceChip(
-              avatar: locked ? const Icon(Icons.lock_rounded, size: 16) : null,
-              label: Text(g == null ? tr('common.all') : AppState.groupLabel(g)),
-              selected: selected == g,
-              onSelected: (_) => onSelect(g),
+          // Categories a la verticale sur le cote, liste a droite.
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  width: 118,
+                  child: _GroupList(
+                    type: widget.type,
+                    groups: groups,
+                    selected: _group,
+                    onSelect: (g) => _selectGroup(app, g),
+                    compact: true,
+                  ),
+                ),
+                const VerticalDivider(width: 1),
+                Expanded(child: list),
+              ],
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
@@ -709,8 +663,10 @@ class _GroupList extends StatelessWidget {
   final List<String> groups;
   final String? selected;
   final ValueChanged<String?> onSelect;
+  final bool compact;
 
   const _GroupList({
+    this.compact = false,
     required this.type,
     required this.groups,
     required this.selected,
@@ -722,16 +678,16 @@ class _GroupList extends StatelessWidget {
     final app = context.watch<AppState>();
     final scheme = Theme.of(context).colorScheme;
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: EdgeInsets.symmetric(vertical: compact ? 4 : 8),
       itemCount: groups.length + 1,
-      itemExtent: 44,
+      itemExtent: compact ? 48 : 44,
       itemBuilder: (_, i) {
         final g = i == 0 ? null : groups[i - 1];
         final sel = selected == g;
         final locked =
             g != null && app.isLockedGroup(type, g) && !app.unlocked;
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          padding: EdgeInsets.symmetric(horizontal: compact ? 4 : 8, vertical: 2),
           child: Material(
             color: sel ? scheme.secondaryContainer : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
@@ -739,15 +695,19 @@ class _GroupList extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
               onTap: () => onSelect(g),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 12),
                 child: Row(
                   children: [
                     Expanded(
                       child: Text(
-                        g == null ? tr('browse.allGroups') : AppState.groupLabel(g),
-                        maxLines: 1,
+                        g == null
+                            ? (compact ? tr('common.all') : tr('browse.allGroups'))
+                            : AppState.groupLabel(g),
+                        maxLines: compact ? 2 : 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
+                          fontSize: compact ? 13 : null,
+                          height: compact ? 1.15 : null,
                           fontWeight: sel ? FontWeight.w700 : FontWeight.w400,
                           color: sel ? scheme.onSecondaryContainer : null,
                         ),

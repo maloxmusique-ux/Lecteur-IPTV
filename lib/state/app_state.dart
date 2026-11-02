@@ -269,6 +269,18 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Change a chaque rechargement complet : l'interface est reconstruite.
+  final reloadCount = ValueNotifier<int>(0);
+
+  /// « Recharger l'application » : reconstruit tout l'ecran et retelecharge
+  /// la liste et le guide de la source active, sans perdre les reglages.
+  Future<void> restartApp() async {
+    reloadCount.value++;
+    notifyListeners();
+    await refresh();
+    await _loadEpg(force: true);
+  }
+
   Future<void> refresh({bool silent = false}) async {
     final s = active;
     if (s == null) return;

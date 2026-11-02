@@ -40,101 +40,130 @@ class ChannelTile extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final p = now;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      child: Material(
-        color: selected
-            ? scheme.primary.withValues(alpha: 0.16)
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          autofocus: autofocus,
-          borderRadius: BorderRadius.circular(12),
-          focusColor: scheme.primary.withValues(alpha: 0.22),
-          onTap: onTap,
-          onLongPress: onLongPress,
-          onSecondaryTap: onLongPress,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Row(
-              children: [
-                if (number != null)
-                  SizedBox(
-                    width: 38,
-                    child: Text(
-                      '$number',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ),
-                ChannelLogo(url: channel.logo, name: channel.name),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        channel.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          fontWeight:
-                              selected ? FontWeight.w700 : FontWeight.w500,
-                          color: selected ? scheme.primary : null,
-                        ),
-                      ),
-                      if (p != null) ...[
-                        const SizedBox(height: 3),
-                        Text(
-                          p.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall
-                              ?.copyWith(color: scheme.onSurfaceVariant),
-                        ),
-                        const SizedBox(height: 4),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(2),
-                          child: LinearProgressIndicator(
-                            value: p.progress(nowMs),
-                            minHeight: 3,
-                            backgroundColor:
-                                scheme.onSurface.withValues(alpha: 0.08),
+    // Telephone (colonne etroite) : numero et icones secondaires masques,
+    // le nom de la chaine a toute la place. Favori par appui long.
+    return LayoutBuilder(
+      builder: (context, box) {
+        final narrow = box.maxWidth < 330;
+        return Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: narrow ? 4 : 8,
+            vertical: 2,
+          ),
+          child: Material(
+            color: selected
+                ? scheme.primary.withValues(alpha: 0.16)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              autofocus: autofocus,
+              borderRadius: BorderRadius.circular(12),
+              focusColor: scheme.primary.withValues(alpha: 0.22),
+              onTap: onTap,
+              onLongPress: onLongPress,
+              onSecondaryTap: onLongPress,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: narrow ? 6 : 10),
+                child: Row(
+                  children: [
+                    if (number != null && !narrow)
+                      SizedBox(
+                        width: 38,
+                        child: Text(
+                          '$number',
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            fontFeatures: const [FontFeature.tabularFigures()],
                           ),
                         ),
-                      ],
-                    ],
-                  ),
-                ),
-                if (recording)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 6),
-                    child: Icon(Icons.fiber_manual_record,
-                        size: 14, color: Colors.redAccent),
-                  ),
-                if (channel.hasArchive)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Icon(Icons.history_rounded,
-                        size: 16, color: scheme.onSurfaceVariant),
-                  ),
-                if (onFavorite != null)
-                  IconButton(
-                    tooltip: favorite ? tr('fav.remove') : tr('fav.add'),
-                    onPressed: onFavorite,
-                    icon: Icon(
-                      favorite ? Icons.star_rounded : Icons.star_border_rounded,
-                      color: favorite ? Colors.amber : scheme.onSurfaceVariant,
+                      ),
+                    ChannelLogo(url: channel.logo, name: channel.name),
+                    SizedBox(width: narrow ? 8 : 12),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            channel.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: selected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: selected ? scheme.primary : null,
+                            ),
+                          ),
+                          if (p != null) ...[
+                            const SizedBox(height: 3),
+                            Text(
+                              p.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(2),
+                              child: LinearProgressIndicator(
+                                value: p.progress(nowMs),
+                                minHeight: 3,
+                                backgroundColor: scheme.onSurface.withValues(
+                                  alpha: 0.08,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
-                  ),
-              ],
+                    if (recording)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 6),
+                        child: Icon(
+                          Icons.fiber_manual_record,
+                          size: 14,
+                          color: Colors.redAccent,
+                        ),
+                      ),
+                    if (channel.hasArchive && !narrow)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Icon(
+                          Icons.history_rounded,
+                          size: 16,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    if (narrow && favorite)
+                      const Icon(
+                        Icons.star_rounded,
+                        size: 16,
+                        color: Colors.amber,
+                      ),
+                    if (onFavorite != null && !narrow)
+                      IconButton(
+                        tooltip: favorite ? tr('fav.remove') : tr('fav.add'),
+                        onPressed: onFavorite,
+                        icon: Icon(
+                          favorite
+                              ? Icons.star_rounded
+                              : Icons.star_border_rounded,
+                          color: favorite
+                              ? Colors.amber
+                              : scheme.onSurfaceVariant,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -218,8 +247,9 @@ class PosterCard extends StatelessWidget {
                     item.name,
                     maxLines: subtitle == null ? 2 : 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(fontWeight: FontWeight.w600),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   if (subtitle != null)
                     Text(
@@ -227,7 +257,8 @@ class PosterCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant),
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                 ],
               ),

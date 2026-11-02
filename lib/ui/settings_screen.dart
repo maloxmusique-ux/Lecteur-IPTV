@@ -192,6 +192,13 @@ class SettingsView extends StatelessWidget {
                 .push(MaterialPageRoute(builder: (_) => const VpnScreen())),
           ),
 
+          ListTile(
+            leading: const Icon(Icons.restart_alt_rounded),
+            title: Text(tr('reload.title')),
+            subtitle: Text(tr('reload.hint')),
+            onTap: () => reloadApp(context),
+          ),
+
           // ------------------------------------------------- Langue
           section(tr('settings.general')),
           ListTile(

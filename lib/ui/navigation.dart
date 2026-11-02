@@ -116,3 +116,13 @@ void toast(BuildContext context, String msg) {
       duration: const Duration(seconds: 3),
     ));
 }
+
+/// Recharge l'application (bouton « Recharger » des menus).
+Future<void> reloadApp(BuildContext context) async {
+  final app = context.read<AppState>();
+  final engine = context.read<PlayerEngine>();
+  Navigator.of(context).popUntil((r) => r.isFirst);
+  toast(context, tr('reload.done'));
+  await engine.stop();
+  await app.restartApp();
+}
