@@ -36,7 +36,7 @@ App Store Connect > Apps > + > Nouvelle app
 - Plateformes : iOS (et macOS si on publie aussi sur Mac)
 - Nom : **Canalix IPTV Player**
 - Langue principale : Français (Canada)
-- Identifiant de paquet : **com.canalixtv.app**
+- Identifiant de paquet : **com.canalixtv.player** (iPhone ; Android garde com.canalixtv.app)
 - SKU : `canalix-001`
 
 ### Abonnements (Fonctionnalités > Abonnements)
