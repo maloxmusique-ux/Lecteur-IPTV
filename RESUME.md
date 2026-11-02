@@ -98,6 +98,10 @@ Modèle choisi par Léandre : **app gratuite à télécharger, accès payant par
 - **Enregistrements récurrents** : en appuyant sur « Enregistrer », choix « Une seule fois », « Chaque fois qu'elle passe » (même titre sur la même chaîne, trouvé dans le guide, 8 jours à l'avance) ou « Chaque semaine » (même jour, même heure ; heures exactes reprises du guide si dispo). Section « Séries d'enregistrement » dans l'onglet Enregistrements avec « Arrêter la série ». Une diffusion annulée à la main ne revient pas. Code : `RecRule` dans `services/recorder.dart`.
 - **Connexion protégée (VPN) au choix** : Réglages > Connexion protégée. L'utilisateur entre les infos de SON fournisseur VPN (SOCKS5 ou HTTP : serveur, port, utilisateur, mot de passe chiffré). Un relais local (`services/proxy.dart`) fait passer catalogue, guide, lecture (option `http-proxy` de libmpv) et enregistrements par le VPN ; si le VPN tombe, ça échoue au lieu de fuir. Bouton « Tester » (IP vue avec et sans VPN). Le réseau local (Chromecast) reste direct. Canalix ne fournit aucun VPN.
 - **Recherche Chromecast renforcée** (`scanForCast`) : mDNS + SSDP/DIAL + balayage du réseau local (port 8009 en TLS), car le pare-feu Windows bloque souvent le mDNS. Si une télé sans Chromecast (Samsung, LG…) est vue, un message l'explique.
+- **Lecteur** : format d'image (Ajuster, Remplir, Étirer, 16:9, 4:3, mémorisé, aussi dans Réglages) ; cadenas sur mobile qui bloque l'écran (bouton « Débloquer » au toucher).
+- **Mini-lecteur** : Android, image dans l'image automatique en quittant l'app pendant une lecture (réglage « Mini-lecteur en quittant l'app ») ; iPhone, bouton mini-lecteur qui passe au lecteur Apple (PiP natif + AirPlay).
+- **Téléphone** : toucher une chaîne = aperçu vidéo en haut, liste et catégories visibles ; toucher l'image = plein écran. Bouton « Catégories » avec recherche (pratique pour les pays). Guide sur 2 lignes.
+- **Boutiques** (`PUBLICATION.md` = toutes les réponses aux formulaires) : versions App Store / Google Play (`--dart-define=STORE=apple|google`, iPhone = toujours Apple) avec achats intégrés (`services/store_billing.dart`, produits `canalix_monthly/quarterly/semiannual/yearly/lifetime`, essai = offre de lancement 7 jours), bouton Restaurer, annulation via le compte de la boutique, sans Stripe ni codes maison. Manifeste de confidentialité iOS/macOS, `ITSAppUsesNonExemptEncryption = NO`. Pages publiques dans `docs/` (GitHub Pages à activer) : accueil, aide, conditions (CLUF), confidentialité, `demo.m3u`. Bouton « Essayer avec la démonstration » dans Sources pour les examinateurs. CI : `Canalix-googleplay.aab` quand la clé Android est dans les secrets. Android déjà conforme (API 36, 16 Ko).
 - **Politique de confidentialité** : `CONFIDENTIALITE.md` (Loi 25 / LPRPDE), résumé dans l'aide de l'app (2 nouvelles questions : code cadeau, données).
 
 ### Cadre légal
@@ -143,6 +147,9 @@ lib/
   ui/legal_screen.dart         Écran d'acceptation et mentions légales
   ui/navigation.dart           Ouverture des contenus, reprise
   ui/reminder_alert.dart       Alerte de rappel
+  services/store_billing.dart  Achats App Store / Google Play
+  services/pip.dart            Mini-lecteur automatique Android
+  docs/                        Pages publiques (aide, conditions, confidentialité, démo)
   services/proxy.dart          Relais vers le VPN de l'utilisateur (SOCKS5 / HTTP)
   ui/vpn_screen.dart           Réglage « Connexion protégée (VPN) »
   services/vault.dart          Chiffrement des identifiants (AES-256-GCM, clé dans le trousseau)

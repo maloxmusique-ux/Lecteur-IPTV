@@ -325,8 +325,9 @@ class _BrowseViewState extends State<BrowseView> {
     }
 
     final items = _filtered(app);
-    final list = widget.type == ContentType.live
-        ? _LiveList(items: items)
+    final live = widget.type == ContentType.live;
+    final list = live
+        ? _LiveList(items: items, inlinePreview: !wide)
         : _PosterGrid(items: items);
 
     final header = _Header(
@@ -363,35 +364,256 @@ class _BrowseViewState extends State<BrowseView> {
       );
     }
 
+    // Telephone : apercu en haut (si une chaine est choisie), puis
+    // recherche, categories et liste, toujours visibles.
     return SafeArea(
       bottom: false,
       child: Column(
         children: [
-          header,
-          SizedBox(
-            height: 44,
+          if (live) const _MobilePreview(),
+          // Apercu affiche : on garde la place pour la liste.
+          if (live && context.select<PlayerEngine, bool>((e) => e.current?.type == ContentType.live))
+            _Header(
+              compact: true,
+              title: _title,
+              count: items.length,
+              controller: _search,
+              onChanged: _onSearch,
+              loading: app.loading || app.epgLoading,
+              onRefresh: app.refresh,
+            )
+          else
+            header,
+          _GroupChips(
+            type: widget.type,
+            groups: groups,
+            selected: _group,
+            onSelect: (g) => _selectGroup(app, g),
+          ),
+          const SizedBox(height: 4),
+          Expanded(child: list),
+        ],
+      ),
+    );
+  }
+}
+
+/// Categories sur telephone : bouton "toutes les categories" (liste avec
+/// recherche, pratique quand il y a des dizaines de pays) + puces.
+class _GroupChips extends StatelessWidget {
+  final ContentType type;
+  final List<String> groups;
+  final String? selected;
+  final ValueChanged<String?> onSelect;
+
+  const _GroupChips({
+    required this.type,
+    required this.groups,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  Future<void> _openSheet(BuildContext context) async {
+    final g = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => _GroupSheet(type: type, groups: groups, selected: selected),
+    );
+    if (g != null) onSelect(g == '' ? null : g);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final scheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: 44,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        itemCount: groups.length + 2,
+        itemBuilder: (_, i) {
+          if (i == 0) {
+            return Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: ActionChip(
+                avatar: Icon(Icons.list_rounded, size: 18, color: scheme.primary),
+                label: Text(selected == null
+                    ? tr('browse.categories')
+                    : AppState.groupLabel(selected!)),
+                onPressed: () => _openSheet(context),
+              ),
+            );
+          }
+          final g = i == 1 ? null : groups[i - 2];
+          final locked = g != null && app.isLockedGroup(type, g) && !app.unlocked;
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 3),
+            child: ChoiceChip(
+              avatar: locked ? const Icon(Icons.lock_rounded, size: 16) : null,
+              label: Text(g == null ? tr('common.all') : AppState.groupLabel(g)),
+              selected: selected == g,
+              onSelected: (_) => onSelect(g),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _GroupSheet extends StatefulWidget {
+  final ContentType type;
+  final List<String> groups;
+  final String? selected;
+  const _GroupSheet({required this.type, required this.groups, required this.selected});
+
+  @override
+  State<_GroupSheet> createState() => _GroupSheetState();
+}
+
+class _GroupSheetState extends State<_GroupSheet> {
+  String _q = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final scheme = Theme.of(context).colorScheme;
+    final q = _q.toLowerCase();
+    final list = [
+      null,
+      ...widget.groups.where((g) => AppState.groupLabel(g).toLowerCase().contains(q)),
+    ];
+    return SizedBox(
+      height: MediaQuery.sizeOf(context).height * 0.8,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: TextField(
+              autofocus: false,
+              onChanged: (v) => setState(() => _q = v),
+              decoration: InputDecoration(
+                hintText: tr('browse.searchCategory'),
+                prefixIcon: const Icon(Icons.search_rounded),
+                isDense: true,
+                filled: true,
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              ),
+            ),
+          ),
+          Expanded(
             child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              itemCount: groups.length + 1,
+              itemCount: list.length,
               itemBuilder: (_, i) {
-                final g = i == 0 ? null : groups[i - 1];
-                final locked = g != null &&
-                    app.isLockedGroup(widget.type, g) &&
-                    !app.unlocked;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: ChoiceChip(
-                    avatar: locked ? const Icon(Icons.lock_rounded, size: 16) : null,
-                    label: Text(g == null ? tr('common.all') : AppState.groupLabel(g)),
-                    selected: _group == g,
-                    onSelected: (_) => _selectGroup(app, g),
-                  ),
+                final g = list[i];
+                if (g == null && q.isNotEmpty) return const SizedBox.shrink();
+                final sel = widget.selected == g;
+                final locked = g != null && app.isLockedGroup(widget.type, g) && !app.unlocked;
+                final n = g == null ? null : app.catalog.countIn(widget.type, g);
+                return ListTile(
+                  selected: sel,
+                  selectedTileColor: scheme.secondaryContainer,
+                  leading: Icon(g == null ? Icons.apps_rounded : Icons.folder_outlined),
+                  title: Text(g == null ? tr('browse.allGroups') : AppState.groupLabel(g)),
+                  trailing: locked
+                      ? const Icon(Icons.lock_rounded, size: 18)
+                      : (n == null ? null : Text('$n')),
+                  onTap: () => Navigator.pop(context, g ?? ''),
                 );
               },
             ),
           ),
-          Expanded(child: list),
+        ],
+      ),
+    );
+  }
+}
+
+/// Apercu video sur telephone : la chaine joue en haut, la liste reste
+/// visible pour zapper. Toucher la video = plein ecran.
+class _MobilePreview extends StatelessWidget {
+  const _MobilePreview();
+
+  @override
+  Widget build(BuildContext context) {
+    final engine = context.watch<PlayerEngine>();
+    final app = context.watch<AppState>();
+    final c = engine.current;
+    if (c == null || c.type != ContentType.live) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    final now = app.epg.isEmpty ? null : app.epg.nowNext(c).$1;
+    return Material(
+      color: Colors.black,
+      child: Column(
+        children: [
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: GestureDetector(
+              onTap: () => openItem(context, c, engine.queue, inlinePreview: true),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  RepaintBoundary(
+                    child: Video(controller: engine.video, controls: NoVideoControls),
+                  ),
+                  if (engine.lastError != null)
+                    Center(
+                      child: Text(tr('player.reconnecting', [engine.retries]),
+                          style: const TextStyle(color: Colors.white70)),
+                    ),
+                  Positioned(
+                    right: 6,
+                    bottom: 6,
+                    child: IconButton.filledTonal(
+                      tooltip: tr('player.fullscreen'),
+                      icon: const Icon(Icons.fullscreen_rounded),
+                      onPressed: () =>
+                          openItem(context, c, engine.queue, inlinePreview: true),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Container(
+            color: theme.colorScheme.surfaceContainerHigh,
+            padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+            child: Row(
+              children: [
+                ChannelLogo(url: c.logo, name: c.name, width: 36, height: 36),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(c.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                      Text(now?.title ?? tr('preview.tapFull'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: tr('common.more'),
+                  icon: const Icon(Icons.more_vert_rounded),
+                  onPressed: () => showChannelMenu(context, c, engine.queue),
+                ),
+                IconButton(
+                  tooltip: tr('preview.close'),
+                  icon: const Icon(Icons.close_rounded),
+                  onPressed: engine.stop,
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -405,8 +627,10 @@ class _Header extends StatelessWidget {
   final ValueChanged<String> onChanged;
   final bool loading;
   final Future<void> Function() onRefresh;
+  final bool compact;
 
   const _Header({
+    this.compact = false,
     required this.title,
     required this.count,
     required this.controller,
@@ -419,11 +643,11 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+      padding: EdgeInsets.fromLTRB(16, compact ? 8 : 12, compact ? 16 : 8, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          if (!compact) Row(
             children: [
               Text(title, style: theme.textTheme.titleLarge),
               const SizedBox(width: 8),
@@ -447,7 +671,7 @@ class _Header extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 8),
+          if (!compact) const SizedBox(height: 8),
           TextField(
             controller: controller,
             onChanged: onChanged,
@@ -545,7 +769,8 @@ class _GroupList extends StatelessWidget {
 
 class _LiveList extends StatelessWidget {
   final List<Channel> items;
-  const _LiveList({required this.items});
+  final bool inlinePreview;
+  const _LiveList({required this.items, this.inlinePreview = false});
 
   @override
   Widget build(BuildContext context) {
@@ -574,7 +799,8 @@ class _LiveList extends StatelessWidget {
                 favorite: app.isFavorite(c),
                 recording: recorder.recordingFor(c) != null,
                 onFavorite: () => app.toggleFavorite(c),
-                onTap: () => openItem(context, c, items),
+                onTap: () =>
+                    openItem(context, c, items, inlinePreview: inlinePreview),
                 onLongPress: () => showChannelMenu(context, c, items),
               );
             },

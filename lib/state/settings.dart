@@ -11,6 +11,20 @@ enum BufferMode { fast, balanced, stable }
 /// Qualite preferee pour les flux adaptatifs (HLS).
 enum StreamQuality { best, fhd, hd, low }
 
+/// Format de l'image dans le lecteur.
+enum VideoFit {
+  /// Image entiere, bandes noires si besoin.
+  fit,
+  /// Remplit l'ecran (zoom, les bords peuvent etre coupes).
+  zoom,
+  /// Etire l'image sur tout l'ecran.
+  stretch,
+  /// Force le 16:9.
+  r169,
+  /// Force le 4:3.
+  r43,
+}
+
 /// Reglages globaux de l'application, sauvegardes sur l'appareil.
 class Settings extends ChangeNotifier {
   late SharedPreferences _prefs;
@@ -46,6 +60,12 @@ class Settings extends ChangeNotifier {
 
   /// Verrouille automatiquement les categories pour adultes.
   bool lockAdult = true;
+
+  /// Format de l'image (memorise d'une seance a l'autre).
+  VideoFit videoFit = VideoFit.fit;
+
+  /// Mini-lecteur flottant quand on quitte l'app (mobile).
+  bool autoPip = true;
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
@@ -101,6 +121,8 @@ class Settings extends ChangeNotifier {
         'recAfter': recPadAfter,
         'pin': parentalPin,
         'lockAdult': lockAdult,
+        'fit': videoFit.index,
+        'autoPip': autoPip,
       };
 
   void _fromJson(Map<String, dynamic> j) {
@@ -122,5 +144,7 @@ class Settings extends ChangeNotifier {
     recPadAfter = v('recAfter', 3);
     parentalPin = v('pin', '');
     lockAdult = v('lockAdult', true);
+    videoFit = VideoFit.values[v<int>('fit', 0).clamp(0, VideoFit.values.length - 1)];
+    autoPip = v('autoPip', true);
   }
 }

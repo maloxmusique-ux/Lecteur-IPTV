@@ -112,6 +112,49 @@ class _GuideViewState extends State<GuideView> {
       for (var i = 0; i < 9; i++) DateTime(first.year, first.month, first.day + i),
     ];
 
+    final groupMenu = _GroupMenu(
+      value: currentGroup,
+      groups: groups,
+      hasFavorites: app.favorites.isNotEmpty,
+      onChanged: (g) => setState(() => _group = _savedGroup = g),
+    );
+    final dayChips = ValueListenableBuilder<double>(
+      valueListenable: _offset,
+      builder: (context, off, _) {
+        final centerMs = _msOf(off + 120);
+        final center = DateTime.fromMillisecondsSinceEpoch(centerMs);
+        return ListView(
+          scrollDirection: Axis.horizontal,
+          children: [
+            for (final d in days)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: ChoiceChip(
+                  label: Text(dayLabel(d)),
+                  selected: d.year == center.year &&
+                      d.month == center.month &&
+                      d.day == center.day,
+                  onSelected: (_) => _jumpDay(d),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+    final timeNav = [
+      IconButton(
+        tooltip: tr('guide.earlier'),
+        onPressed: () => _setOffset(_offset.value - 120),
+        icon: const Icon(Icons.chevron_left_rounded),
+      ),
+      TextButton(onPressed: _jumpNow, child: Text(tr('guide.now'))),
+      IconButton(
+        tooltip: tr('guide.later'),
+        onPressed: () => _setOffset(_offset.value + 120),
+        icon: const Icon(Icons.chevron_right_rounded),
+      ),
+    ];
+
     final header = Padding(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
       child: Column(
@@ -133,7 +176,7 @@ class _GuideViewState extends State<GuideView> {
                       });
                     },
                     decoration: InputDecoration(
-                      hintText: tr('guide.search'),
+                      hintText: wide ? tr('guide.search') : tr('common.search'),
                       prefixIcon: const Icon(Icons.search_rounded),
                       isDense: true,
                       filled: true,
@@ -166,56 +209,20 @@ class _GuideViewState extends State<GuideView> {
           ),
           if (_query.isEmpty) ...[
             const SizedBox(height: 8),
-            SizedBox(
-              height: 40,
-              child: Row(
-                children: [
-                  _GroupMenu(
-                    value: currentGroup,
-                    groups: groups,
-                    hasFavorites: app.favorites.isNotEmpty,
-                    onChanged: (g) => setState(() => _group = _savedGroup = g),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ValueListenableBuilder<double>(
-                      valueListenable: _offset,
-                      builder: (context, off, _) {
-                        final centerMs = _msOf(off + 120);
-                        final center = DateTime.fromMillisecondsSinceEpoch(centerMs);
-                        return ListView(
-                          scrollDirection: Axis.horizontal,
-                          children: [
-                            for (final d in days)
-                              Padding(
-                                padding: const EdgeInsets.only(right: 6),
-                                child: ChoiceChip(
-                                  label: Text(dayLabel(d)),
-                                  selected: d.year == center.year &&
-                                      d.month == center.month &&
-                                      d.day == center.day,
-                                  onSelected: (_) => _jumpDay(d),
-                                ),
-                              ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: tr('guide.earlier'),
-                    onPressed: () => _setOffset(_offset.value - 120),
-                    icon: const Icon(Icons.chevron_left_rounded),
-                  ),
-                  TextButton(onPressed: _jumpNow, child: Text(tr('guide.now'))),
-                  IconButton(
-                    tooltip: tr('guide.later'),
-                    onPressed: () => _setOffset(_offset.value + 120),
-                    icon: const Icon(Icons.chevron_right_rounded),
-                  ),
-                ],
+            // Telephone : categories et heure sur une ligne, jours dessous.
+            if (wide)
+              SizedBox(
+                height: 40,
+                child: Row(children: [groupMenu, const SizedBox(width: 8), Expanded(child: dayChips), ...timeNav]),
+              )
+            else ...[
+              SizedBox(
+                height: 40,
+                child: Row(children: [Flexible(child: groupMenu), const Spacer(), ...timeNav]),
               ),
-            ),
+              const SizedBox(height: 6),
+              SizedBox(height: 40, child: dayChips),
+            ],
           ],
         ],
       ),

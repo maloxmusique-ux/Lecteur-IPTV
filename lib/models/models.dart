@@ -219,6 +219,23 @@ class Catalog {
         ContentType.series => series,
       };
 
+  /// Nombre d'elements par categorie (calcule une fois, a la demande).
+  static final _countCache = Expando<List<Map<String, int>>>();
+
+  int countIn(ContentType t, String group) {
+    final counts = _countCache[this] ??= [
+      for (final type in ContentType.values)
+        () {
+          final m = <String, int>{};
+          for (final c in of(type)) {
+            m[c.groupKey] = (m[c.groupKey] ?? 0) + 1;
+          }
+          return m;
+        }(),
+    ];
+    return counts[t.index][group] ?? 0;
+  }
+
   factory Catalog.fromChannels(List<Channel> all, {String epgUrl = ''}) {
     final live = <Channel>[];
     final movies = <Channel>[];

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 /// Nom, contacts et serveur de licences de l'application.
 /// Pour renommer l'app ou brancher le vrai serveur, tout se change ici
 /// (et pour le serveur, aussi a la compilation avec --dart-define).
@@ -24,6 +26,24 @@ class Brand {
 
   static bool get testMode => licenseApi.isEmpty;
 
+  /// Canal de distribution, fixe a la compilation (--dart-define=STORE=...).
+  /// apple : App Store / Mac App Store, google : Google Play,
+  /// none : telechargement direct (Windows, Mac hors boutique, APK).
+  /// L'iPhone passe toujours par l'App Store.
+  static const _store = String.fromEnvironment('STORE');
+  static String get store =>
+      _store.isNotEmpty ? _store : (Platform.isIOS ? 'apple' : 'none');
+
+  /// Paiement par la boutique (obligatoire chez Apple et Google) :
+  /// pas de Stripe ni de codes maison dans ces versions.
+  static bool get storeBilling => store == 'apple' || store == 'google';
+
+  /// Pages publiques (exigees par les boutiques).
+  static const pages = 'https://maloxmusique-ux.github.io/Lecteur-IPTV';
+  static const privacyUrl = '$pages/confidentialite.html';
+  static const termsUrl = '$pages/conditions.html';
+  static const supportUrl = '$pages/aide.html';
+
   /// Duree de l'essai gratuit.
   static const trialDays = 7;
 }
@@ -40,6 +60,9 @@ enum Plan {
   final int months;
   final int priceCents;
   const Plan(this.months, this.priceCents);
+
+  /// Identifiant du produit dans l'App Store et Google Play.
+  String get storeId => 'canalix_$name';
 
   bool get recurring => months > 0;
 

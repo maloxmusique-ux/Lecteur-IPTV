@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../config/brand.dart';
 import '../l10n/i18n.dart';
 import '../services/license.dart';
+import '../services/store_billing.dart';
 
 /// Verifie que l'appareil peut lire. Sinon, ouvre l'ecran des forfaits.
 /// Renvoie vrai si la lecture est permise (eventuellement apres paiement).
@@ -28,6 +29,35 @@ DateTime _nextCharge(Plan p, [DateTime? from]) {
 }
 
 String planName(Plan p) => tr('plan.${p.name}');
+
+/// Prix a afficher : celui de la boutique (devise du pays) si disponible.
+String planPrice(BuildContext context, Plan p) =>
+    context.read<LicenseService>().store?.priceOf(p) ?? p.price;
+
+/// Liens obligatoires : conditions d'utilisation et confidentialite.
+class LegalLinks extends StatelessWidget {
+  const LegalLinks({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.bodySmall;
+    return Wrap(
+      alignment: WrapAlignment.center,
+      children: [
+        TextButton(
+          onPressed: () => launchUrl(Uri.parse(Brand.termsUrl),
+              mode: LaunchMode.externalApplication),
+          child: Text(tr('legal.terms'), style: style),
+        ),
+        TextButton(
+          onPressed: () => launchUrl(Uri.parse(Brand.privacyUrl),
+              mode: LaunchMode.externalApplication),
+          child: Text(tr('legal.privacy'), style: style),
+        ),
+      ],
+    );
+  }
+}
 
 // ----------------------------------------------------------- Forfaits
 
@@ -148,7 +178,9 @@ class _PaywallScreenState extends State<PaywallScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.lock_rounded),
                     label: Text(
-                      tr('pay.payNow', [_selected.price]),
+                      lic.store != null && _selected.recurring
+                          ? tr('pay.startTrial')
+                          : tr('pay.payNow', [planPrice(context, _selected)]),
                       style: const TextStyle(fontSize: 17),
                     ),
                   ),
@@ -163,24 +195,38 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   alignment: WrapAlignment.center,
                   spacing: 8,
                   children: [
-                    TextButton.icon(
-                      onPressed: () async {
-                        await lic.refresh();
-                        if (context.mounted && lic.canPlay) {
-                          Navigator.of(context).maybePop();
-                        }
-                      },
-                      icon: const Icon(Icons.refresh_rounded),
-                      label: Text(tr('pay.alreadyPaid')),
-                    ),
-                    TextButton.icon(
-                      onPressed: () async {
-                        final ok = await showRedeemDialog(context);
-                        if (ok && context.mounted) Navigator.of(context).maybePop();
-                      },
-                      icon: const Icon(Icons.card_giftcard_rounded),
-                      label: Text(tr('code.have')),
-                    ),
+                    if (lic.store != null)
+                      TextButton.icon(
+                        onPressed: () async {
+                          final ok = await lic.store!.restore();
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text(ok ? tr('pay.restored') : tr('pay.nothingToRestore'))));
+                          if (ok) Navigator.of(context).maybePop();
+                        },
+                        icon: const Icon(Icons.restore_rounded),
+                        label: Text(tr('pay.restore')),
+                      )
+                    else ...[
+                      TextButton.icon(
+                        onPressed: () async {
+                          await lic.refresh();
+                          if (context.mounted && lic.canPlay) {
+                            Navigator.of(context).maybePop();
+                          }
+                        },
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: Text(tr('pay.alreadyPaid')),
+                      ),
+                      TextButton.icon(
+                        onPressed: () async {
+                          final ok = await showRedeemDialog(context);
+                          if (ok && context.mounted) Navigator.of(context).maybePop();
+                        },
+                        icon: const Icon(Icons.card_giftcard_rounded),
+                        label: Text(tr('code.have')),
+                      ),
+                    ],
                     TextButton.icon(
                       onPressed: () => Navigator.of(context).push(
                           MaterialPageRoute(builder: (_) => const HelpScreen())),
@@ -189,8 +235,11 @@ class _PaywallScreenState extends State<PaywallScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Center(child: _MacChip(mac: lic.mac)),
+                const LegalLinks(),
+                if (lic.store == null) ...[
+                  const SizedBox(height: 8),
+                  Center(child: _MacChip(mac: lic.mac)),
+                ],
               ],
             ),
           ),
@@ -252,7 +301,7 @@ class _PlanCard extends StatelessWidget {
                   style: theme.textTheme.titleMedium
                       ?.copyWith(fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),
-              Text(plan.price,
+              Text(planPrice(context, plan),
                   style: theme.textTheme.headlineSmall
                       ?.copyWith(fontWeight: FontWeight.w800)),
               Text(
@@ -315,7 +364,28 @@ class _Terms extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: plan.recurring
+        children: context.read<LicenseService>().store != null
+            ? [
+                if (plan.recurring) ...[
+                  line(Icons.card_giftcard_rounded, tr('terms.storeTrial')),
+                  line(Icons.autorenew_rounded,
+                      tr('terms.storeRenews', [
+                        planName(plan).toLowerCase(),
+                        planPrice(context, plan),
+                        StoreBilling.storeName,
+                      ]),
+                      color: theme.colorScheme.onSurfaceVariant),
+                  line(Icons.check_circle_rounded,
+                      tr('terms.storeCancel', [StoreBilling.storeName])),
+                ] else ...[
+                  line(Icons.check_circle_rounded, tr('terms.once')),
+                  line(Icons.check_circle_rounded, tr('terms.noRenew')),
+                ],
+                line(Icons.devices_rounded,
+                    tr('terms.storeDevices', [StoreBilling.storeName]),
+                    color: theme.colorScheme.onSurfaceVariant),
+              ]
+            : plan.recurring
             ? [
                 line(Icons.check_circle_rounded, tr('terms.noCommitment')),
                 line(Icons.check_circle_rounded, tr('terms.cancelAnytime')),
@@ -365,6 +435,8 @@ class _MacChip extends StatelessWidget {
 /// Ouvre la page de paiement et attend la confirmation.
 Future<bool> startPayment(BuildContext context, Plan plan) async {
   final lic = context.read<LicenseService>();
+  // Versions boutiques : fenetre de paiement d'Apple ou de Google.
+  if (lic.store != null) return lic.store!.buy(plan);
   if (Brand.testMode) {
     final ok = await showDialog<bool>(
       context: context,
@@ -507,6 +579,7 @@ class SubscriptionScreen extends StatelessWidget {
     final info = lic.info;
     final theme = Theme.of(context);
     final store = info.source == 'apple' || info.source == 'google';
+    final storeBuild = lic.store != null;
     final gift = info.source == 'gift';
     // Un acces offert ne se renouvelle jamais : rien a annuler.
     final recurring = !gift && (info.plan?.recurring ?? false);
@@ -528,6 +601,10 @@ class SubscriptionScreen extends StatelessWidget {
       detail = tr('code.giftUntil', [_date(info.expiresAt!)]);
     } else if (active && info.plan == Plan.lifetime) {
       detail = tr('sub.lifetime');
+    } else if (active && store) {
+      detail = info.plan == Plan.lifetime
+          ? tr('sub.lifetime')
+          : tr('sub.storeManaged', [StoreBilling.storeName]);
     } else if (active && info.autoRenew && info.expiresAt != null) {
       detail = tr('sub.nextCharge', [info.plan!.price, _date(info.expiresAt!)]);
     } else if (active && info.expiresAt != null) {
@@ -570,7 +647,10 @@ class SubscriptionScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 14),
-                  if (gift && active)
+                  if (store && active && info.plan != null)
+                    Text('${planName(info.plan!)} · ${planPrice(context, info.plan!)}',
+                        style: theme.textTheme.titleLarge)
+                  else if (gift && active)
                     Row(children: [
                       const Icon(Icons.card_giftcard_rounded, color: Colors.amber),
                       const SizedBox(width: 8),
@@ -582,7 +662,7 @@ class SubscriptionScreen extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(detail, style: theme.textTheme.bodyLarge),
                   const SizedBox(height: 14),
-                  _MacChip(mac: lic.mac),
+                  if (!storeBuild || gift) _MacChip(mac: lic.mac),
                 ],
               ),
             ),
@@ -632,18 +712,38 @@ class SubscriptionScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
           ],
-          if (store && recurring)
-            OutlinedButton.icon(
-              onPressed: () => launchUrl(
-                  Uri.parse(info.source == 'apple'
-                      ? 'https://apps.apple.com/account/subscriptions'
-                      : 'https://play.google.com/store/account/subscriptions'),
-                  mode: LaunchMode.externalApplication),
-              icon: const Icon(Icons.open_in_new_rounded),
-              label: Text(info.source == 'apple'
-                  ? tr('sub.manageApple')
-                  : tr('sub.manageGoogle')),
+          // Abonnement de la boutique : annulation visible, en un toucher.
+          if (store && recurring) ...[
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.redAccent.withValues(alpha: 0.5)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(tr('sub.storeCancelInfo', [StoreBilling.storeName]),
+                      style: theme.textTheme.bodyMedium),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 50,
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                          backgroundColor: Colors.redAccent,
+                          foregroundColor: Colors.white),
+                      onPressed: StoreBilling.manage,
+                      icon: const Icon(Icons.open_in_new_rounded),
+                      label: Text(tr('sub.storeManage'),
+                          style: const TextStyle(fontSize: 16)),
+                    ),
+                  ),
+                ],
+              ),
             ),
+            const SizedBox(height: 12),
+          ],
           if (!active || info.plan != Plan.lifetime)
             OutlinedButton.icon(
               onPressed: () => Navigator.of(context).push(
@@ -652,7 +752,18 @@ class SubscriptionScreen extends StatelessWidget {
               label: Text(active ? tr('sub.change') : tr('sub.subscribe')),
             ),
 
-          if (!active || info.expiresAt != null) ...[
+          if (storeBuild)
+            TextButton.icon(
+              onPressed: () async {
+                final ok = await lic.store!.restore();
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text(ok ? tr('pay.restored') : tr('pay.nothingToRestore'))));
+              },
+              icon: const Icon(Icons.restore_rounded),
+              label: Text(tr('pay.restore')),
+            ),
+          if (!storeBuild && (!active || info.expiresAt != null)) ...[
             const SizedBox(height: 8),
             OutlinedButton.icon(
               onPressed: () => showRedeemDialog(context),
@@ -690,7 +801,8 @@ class SubscriptionScreen extends StatelessWidget {
             onTap: () => Navigator.of(context)
                 .push(MaterialPageRoute(builder: (_) => const HelpScreen())),
           ),
-          if (Brand.testMode) ...[
+          const LegalLinks(),
+          if (Brand.testMode && !storeBuild) ...[
             const Divider(height: 32),
             Text(tr('sub.testTools'), style: theme.textTheme.labelLarge),
             Wrap(
@@ -763,7 +875,12 @@ class HelpScreen extends StatelessWidget {
     final lic = context.read<LicenseService>();
     final theme = Theme.of(context);
     final faq = [
-      for (var i = 1; i <= 9; i++) (tr('faq.q$i'), tr('faq.a$i')),
+      // Versions boutiques : pas de codes, pas d'adresse MAC, annulation
+      // dans le compte Apple / Google.
+      for (final k in Brand.storeBilling
+          ? const ['1', '2', '3', '4s', '5s', '6s', '9']
+          : const ['1', '2', '3', '4', '5', '6', '7', '8', '9'])
+        (tr('faq.q$k', [StoreBilling.storeName]), tr('faq.a$k', [StoreBilling.storeName])),
     ];
     Future<void> write() async {
       final body = tr('help.mailBody', [

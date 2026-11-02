@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/brand.dart';
+import 'store_billing.dart';
 
 enum LicenseStatus { trial, active, expired }
 
@@ -126,6 +127,22 @@ class LicenseService extends ChangeNotifier {
   String? error;
   Timer? _timer;
 
+  /// Achats App Store / Google Play (versions publiees dans ces boutiques).
+  final StoreBilling? _store = Brand.storeBilling ? StoreBilling() : null;
+
+  /// Boutique active. En developpement (pas de serveur de licences) et tant
+  /// que les produits ne sont pas crees dans la boutique, l'app garde
+  /// l'essai et les paiements simules pour pouvoir etre testee.
+  StoreBilling? get store {
+    final st = _store;
+    if (st == null) return null;
+    if (Brand.testMode && st.products.isEmpty) return null;
+    return st;
+  }
+
+  /// Derniere reponse du serveur (acces offert par le portail, etc.).
+  LicenseInfo? _server;
+
   bool get canPlay => info.canPlay;
 
   Future<void> init() async {
@@ -137,6 +154,10 @@ class LicenseService extends ChangeNotifier {
         info = LicenseInfo.fromJson(jsonDecode(cached) as Map<String, dynamic>);
         info = _recompute(info);
       } catch (_) {}
+    }
+    if (_store != null) {
+      _store.addListener(() => _set(_server ?? info));
+      unawaited(_store.init());
     }
     unawaited(refresh());
     // Verification reguliere (fin d'essai, renouvellement).
@@ -180,6 +201,28 @@ class LicenseService extends ChangeNotifier {
     } catch (_) {}
   }
 
+  /// Versions boutiques : l'abonnement vient d'Apple ou de Google. L'essai
+  /// gratuit est l'offre de bienvenue de la boutique (pas de minuterie
+  /// maison). Un acces offert par le portail reste valable.
+  LicenseInfo _storeMerge(LicenseInfo i) {
+    final st = store;
+    if (st == null) return i;
+    final plan = st.entitled;
+    if (plan != null) {
+      return LicenseInfo(
+        status: LicenseStatus.active,
+        trialEndsAt: i.trialEndsAt,
+        plan: plan,
+        autoRenew: plan.recurring,
+        source: Brand.store,
+        payments: i.payments,
+      );
+    }
+    if (i.status == LicenseStatus.active && i.source == 'gift') return i;
+    return LicenseInfo(
+        status: LicenseStatus.expired, trialEndsAt: DateTime.now(), payments: i.payments);
+  }
+
   /// Statut recalcule localement (fin d'essai ou d'abonnement sans reseau).
   LicenseInfo _recompute(LicenseInfo i) {
     final now = DateTime.now();
@@ -206,7 +249,8 @@ class LicenseService extends ChangeNotifier {
   }
 
   void _set(LicenseInfo i) {
-    info = _recompute(i);
+    _server = i;
+    info = _storeMerge(_recompute(i));
     _prefs.setString('license_cache', jsonEncode(info.toJson()));
     notifyListeners();
   }
@@ -242,6 +286,7 @@ class LicenseService extends ChangeNotifier {
   }
 
   Future<void> refresh() async {
+    unawaited(_store?.refresh());
     try {
       final j = await _call('status');
       error = null;

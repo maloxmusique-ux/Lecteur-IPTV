@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../config/brand.dart';
 import '../l10n/i18n.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
@@ -69,6 +70,21 @@ class SourcesView extends StatelessWidget {
                       onPressed: () => showSourceEditor(context),
                       icon: const Icon(Icons.add_rounded),
                       label: Text(tr('src.add')),
+                    ),
+                    const SizedBox(height: 10),
+                    // Videos libres de droits : pour decouvrir l'app (et pour
+                    // les equipes d'examen des boutiques).
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        await app.addSource(Source(
+                          id: 'demo',
+                          name: tr('src.demoName'),
+                          kind: SourceKind.m3u,
+                          url: '${Brand.pages}/demo.m3u',
+                        ));
+                      },
+                      icon: const Icon(Icons.play_circle_outline_rounded),
+                      label: Text(tr('src.demo')),
                     ),
                   ],
                 ),

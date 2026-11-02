@@ -48,6 +48,10 @@ enum AirPlayPresenter {
     vc.player = player
     vc.title = title
     vc.modalPresentationStyle = .fullScreen
+    // Mini-lecteur : bouton PiP, et demarrage automatique en quittant l'app.
+    vc.allowsPictureInPicturePlayback = true
+    vc.canStartPictureInPictureAutomaticallyFromInline = true
+    vc.updatesNowPlayingInfoCenter = true
 
     // Bouton AirPlay bien visible en haut.
     let picker = AVRoutePickerView()
@@ -64,10 +68,10 @@ enum AirPlayPresenter {
     top.present(vc, animated: true) {
       if let overlay = vc.contentOverlayView {
         NSLayoutConstraint.activate([
-          picker.centerXAnchor.constraint(equalTo: overlay.centerXAnchor),
-          picker.centerYAnchor.constraint(equalTo: overlay.centerYAnchor),
-          picker.widthAnchor.constraint(equalToConstant: 64),
-          picker.heightAnchor.constraint(equalToConstant: 64),
+          picker.trailingAnchor.constraint(equalTo: overlay.safeAreaLayoutGuide.trailingAnchor, constant: -16),
+          picker.bottomAnchor.constraint(equalTo: overlay.safeAreaLayoutGuide.bottomAnchor, constant: -90),
+          picker.widthAnchor.constraint(equalToConstant: 44),
+          picker.heightAnchor.constraint(equalToConstant: 44),
         ])
       }
       player.play()

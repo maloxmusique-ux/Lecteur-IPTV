@@ -44,6 +44,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _desktopFullscreen = false;
   bool _info = false;
   Timer? _hide;
+
+  // Verrou d'ecran : plus aucun geste ne change la lecture.
+  bool _locked = false;
+  bool _lockHint = false;
+  Timer? _lockTimer;
+
+  // Nom du format affiche brievement au centre.
+  String? _toast;
+  Timer? _toastTimer;
   String? _lastId;
 
   // Saisie d'un numero de chaine a la telecommande.
@@ -107,9 +116,53 @@ class _PlayerScreenState extends State<PlayerScreen> {
     setState(() {});
   }
 
+  void _flash(String text) {
+    _toastTimer?.cancel();
+    setState(() => _toast = text);
+    _toastTimer = Timer(const Duration(milliseconds: 1400), () {
+      if (mounted) setState(() => _toast = null);
+    });
+  }
+
+  void _cycleFit() {
+    final s = context.read<Settings>();
+    final next = VideoFit.values[(s.videoFit.index + 1) % VideoFit.values.length];
+    s.update((x) => x.videoFit = next);
+    _flash(fitLabel(next));
+    _scheduleHide();
+  }
+
+  void _lock() {
+    setState(() {
+      _locked = true;
+      _overlay = false;
+      _info = false;
+    });
+    _showLockHint();
+  }
+
+  void _unlock() {
+    _lockTimer?.cancel();
+    setState(() {
+      _locked = false;
+      _lockHint = false;
+    });
+    _showOverlay();
+  }
+
+  void _showLockHint() {
+    _lockTimer?.cancel();
+    setState(() => _lockHint = true);
+    _lockTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _lockHint = false);
+    });
+  }
+
   @override
   void dispose() {
     _hide?.cancel();
+    _lockTimer?.cancel();
+    _toastTimer?.cancel();
     _digitTimer?.cancel();
     engine.removeListener(_onEngine);
     if (_mobile || _desktopFullscreen) defaultExitNativeFullscreen();
@@ -141,6 +194,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   KeyEventResult _onKey(FocusNode _, KeyEvent e) {
     if (e is! KeyDownEvent && e is! KeyRepeatEvent) return KeyEventResult.ignored;
+    if (_locked) {
+      _showLockHint();
+      return KeyEventResult.handled;
+    }
     final k = e.logicalKey;
     final digit = _digitOf(k);
     if (digit != null && _isLive) {
@@ -212,6 +269,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   Future<void> _enterPip() async {
+    // iPhone : le mini-lecteur passe par le lecteur Apple (PiP natif).
+    if (Platform.isIOS) {
+      final c = engine.current;
+      if (c == null) return;
+      await engine.player.pause();
+      if (!mounted) return;
+      await AirPlay.play(c, userAgent: context.read<AppState>().active?.userAgent ?? '');
+      return;
+    }
     try {
       final w = engine.player.state.width ?? 16;
       final h = engine.player.state.height ?? 9;
@@ -225,7 +291,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
     // Fenetre minuscule (image dans l'image) : video seule.
     final tiny = MediaQuery.sizeOf(context).width < 400 &&
         MediaQuery.sizeOf(context).height < 400;
-    return Scaffold(
+    final fit = context.select<Settings, VideoFit>((s) => s.videoFit);
+    return PopScope(
+      // Ecran verrouille : le bouton retour ne quitte pas la lecture.
+      canPop: !_locked,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _locked) _showLockHint();
+      },
+      child: Scaffold(
       backgroundColor: Colors.black,
       body: Focus(
         focusNode: _focus,
@@ -237,13 +310,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
           },
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: _toggleOverlay,
-            onDoubleTap: _toggleDesktopFullscreen,
-            onVerticalDragEnd: (d) {
-              final v = d.primaryVelocity ?? 0;
-              if (v < -300) engine.next();
-              if (v > 300) engine.previous();
-            },
+            onTap: _locked ? _showLockHint : _toggleOverlay,
+            onDoubleTap: _locked ? null : _toggleDesktopFullscreen,
+            onVerticalDragEnd: _locked
+                ? null
+                : (d) {
+                    final v = d.primaryVelocity ?? 0;
+                    if (v < -300) engine.next();
+                    if (v > 300) engine.previous();
+                  },
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -254,6 +329,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     controls: NoVideoControls,
                     fill: Colors.black,
                     filterQuality: FilterQuality.medium,
+                    fit: switch (fit) {
+                      VideoFit.zoom => BoxFit.cover,
+                      VideoFit.stretch => BoxFit.fill,
+                      _ => BoxFit.contain,
+                    },
+                    aspectRatio: switch (fit) {
+                      VideoFit.r169 => 16 / 9,
+                      VideoFit.r43 => 4 / 3,
+                      _ => null,
+                    },
                   ),
                 ),
                 if (!tiny) const Center(child: _BufferingIndicator()),
@@ -282,7 +367,44 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     right: 16,
                     child: _InfoPanel(onClose: () => setState(() => _info = false)),
                   ),
-                if (!tiny)
+                if (_toast != null && !tiny)
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                      decoration: BoxDecoration(
+                          color: Colors.black54, borderRadius: BorderRadius.circular(14)),
+                      child: Text(_toast!,
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+                if (_locked && !tiny)
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: SafeArea(
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 36),
+                        child: AnimatedOpacity(
+                          opacity: _lockHint ? 1 : 0,
+                          duration: const Duration(milliseconds: 200),
+                          child: IgnorePointer(
+                            ignoring: !_lockHint,
+                            child: FilledButton.icon(
+                              style: FilledButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: Colors.black,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 22, vertical: 14)),
+                              onPressed: _unlock,
+                              icon: const Icon(Icons.lock_open_rounded),
+                              label: Text(tr('player.unlock')),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (!tiny && !_locked)
                   AnimatedOpacity(
                     opacity: _overlay ? 1 : 0,
                     duration: const Duration(milliseconds: 200),
@@ -293,9 +415,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         onFullscreen: _mobile ? null : _toggleDesktopFullscreen,
                         fullscreen: _desktopFullscreen,
                         onInfo: () => setState(() => _info = !_info),
-                        onPip: Platform.isAndroid ? _enterPip : null,
+                        onPip: Platform.isAndroid || Platform.isIOS ? _enterPip : null,
                         onSeek: _seek,
                         canSeekLive: _canSeekLive,
+                        onFit: _cycleFit,
+                        onLock: _mobile ? _lock : null,
                       ),
                     ),
                   ),
@@ -304,9 +428,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 }
+
+/// Nom affiche d'un format d'image.
+String fitLabel(VideoFit f) => switch (f) {
+      VideoFit.fit => tr('fit.fit'),
+      VideoFit.zoom => tr('fit.zoom'),
+      VideoFit.stretch => tr('fit.stretch'),
+      VideoFit.r169 => '16:9',
+      VideoFit.r43 => '4:3',
+    };
 
 class _BufferingIndicator extends StatelessWidget {
   const _BufferingIndicator();
@@ -454,8 +588,12 @@ class _Overlay extends StatelessWidget {
   final VoidCallback? onPip;
   final Future<void> Function(int) onSeek;
   final bool canSeekLive;
+  final VoidCallback onFit;
+  final VoidCallback? onLock;
 
   const _Overlay({
+    required this.onFit,
+    required this.onLock,
     required this.onUserAction,
     required this.onFullscreen,
     required this.fullscreen,
@@ -570,6 +708,19 @@ class _Overlay extends StatelessWidget {
                       onUserAction();
                       showCastDialog(context);
                     },
+                  ),
+                IconButton(
+                  tooltip: tr('fit.title'),
+                  icon: const Icon(Icons.aspect_ratio_rounded),
+                  color: Colors.white,
+                  onPressed: onFit,
+                ),
+                if (onLock != null)
+                  IconButton(
+                    tooltip: tr('player.lock'),
+                    icon: const Icon(Icons.lock_outline_rounded),
+                    color: Colors.white,
+                    onPressed: onLock,
                   ),
                 if (onPip != null)
                   IconButton(

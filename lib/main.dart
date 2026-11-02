@@ -1,3 +1,6 @@
+import 'package:media_kit_video/media_kit_video.dart';
+
+import 'dart:io';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -10,6 +13,7 @@ import 'l10n/i18n.dart';
 import 'player/player_engine.dart';
 import 'services/license.dart';
 import 'services/migrate.dart';
+import 'services/pip.dart';
 import 'services/proxy.dart';
 import 'services/vault.dart';
 import 'services/recorder.dart';
@@ -57,6 +61,7 @@ Future<void> main() async {
   });
   final engine = PlayerEngine(settings);
   engine.onProgress = app.saveProgress;
+  PipController(engine, settings);
 
   runApp(
     MultiProvider(
@@ -99,18 +104,21 @@ class CanalixApp extends StatelessWidget {
         colorScheme: scheme,
         scaffoldBackgroundColor: scheme.surface,
         visualDensity: VisualDensity.standard,
-        pageTransitionsTheme: const PageTransitionsTheme(builders: {
-          TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
-          TargetPlatform.iOS: FadeForwardsPageTransitionsBuilder(),
-          TargetPlatform.linux: FadeForwardsPageTransitionsBuilder(),
-          TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
-          TargetPlatform.macOS: FadeForwardsPageTransitionsBuilder(),
-        }),
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
+            TargetPlatform.iOS: FadeForwardsPageTransitionsBuilder(),
+            TargetPlatform.linux: FadeForwardsPageTransitionsBuilder(),
+            TargetPlatform.windows: FadeForwardsPageTransitionsBuilder(),
+            TargetPlatform.macOS: FadeForwardsPageTransitionsBuilder(),
+          },
+        ),
       ),
       // Navigation a la telecommande (Android TV) : la touche OK active.
       shortcuts: {
         ...WidgetsApp.defaultShortcuts,
-        const SingleActivator(LogicalKeyboardKey.select): const ActivateIntent(),
+        const SingleActivator(LogicalKeyboardKey.select):
+            const ActivateIntent(),
       },
       // Echap = retour (ordinateur). Les dialogues et le lecteur gerent
       // Echap eux-memes avant d'arriver ici.
@@ -119,7 +127,7 @@ class CanalixApp extends StatelessWidget {
           const SingleActivator(LogicalKeyboardKey.escape): () =>
               navigatorKey.currentState?.maybePop(),
         },
-        child: child!,
+        child: _PipAware(child: child!),
       ),
       // La cle force la reconstruction complete quand la langue change.
       home: KeyedSubtree(
@@ -127,9 +135,10 @@ class CanalixApp extends StatelessWidget {
         child: !legal
             ? const LegalGate()
             : !chosen
-                ? const ProfilesScreen(startup: true)
-                : const _UserAgentSync(
-                    child: ReminderListener(child: HomeScreen())),
+            ? const ProfilesScreen(startup: true)
+            : const _UserAgentSync(
+                child: ReminderListener(child: HomeScreen()),
+              ),
       ),
     );
   }
@@ -142,8 +151,9 @@ class _UserAgentSync extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ua =
-        context.select<AppState, String>((a) => a.active?.userAgent ?? '');
+    final ua = context.select<AppState, String>(
+      (a) => a.active?.userAgent ?? '',
+    );
     context.read<PlayerEngine>().setUserAgent(ua);
     return child;
   }
@@ -180,4 +190,31 @@ class _ReminderListenerState extends State<ReminderListener> {
 
   @override
   Widget build(BuildContext context) => widget.child;
+}
+
+/// Dans le mini-lecteur flottant (fenetre minuscule), seule la video
+/// s'affiche, quel que soit l'ecran ou se trouvait l'utilisateur.
+class _PipAware extends StatelessWidget {
+  final Widget child;
+  const _PipAware({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final tiny = Platform.isAndroid && size.width < 420 && size.height < 420;
+    if (!tiny) return child;
+    final engine = context.watch<PlayerEngine>();
+    if (engine.current == null) return child;
+    return Stack(
+      children: [
+        Offstage(child: child),
+        Positioned.fill(
+          child: ColoredBox(
+            color: Colors.black,
+            child: Video(controller: engine.video, controls: NoVideoControls),
+          ),
+        ),
+      ],
+    );
+  }
 }

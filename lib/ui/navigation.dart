@@ -17,11 +17,14 @@ bool isWide(BuildContext context) =>
     MediaQuery.sizeOf(context).width >= kWideBreakpoint;
 
 /// Ouvre une entree selon son type et la mise en page.
-Future<void> openItem(
-    BuildContext context, Channel c, List<Channel> queue) async {
+///
+/// [inlinePreview] : l'ecran a un apercu video (liste des chaines sur
+/// telephone) ; 1er toucher = apercu, 2e toucher = plein ecran.
+Future<void> openItem(BuildContext context, Channel c, List<Channel> queue,
+    {bool inlinePreview = false}) async {
   final engine = context.read<PlayerEngine>();
   final app = context.read<AppState>();
-  final wide = isWide(context);
+  final wide = isWide(context) || inlinePreview;
 
   if (!app.canSee(c)) {
     if (!await askUnlock(context)) return;

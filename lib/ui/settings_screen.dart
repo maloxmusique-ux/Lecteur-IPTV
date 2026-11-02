@@ -14,6 +14,7 @@ import '../state/app_state.dart';
 import '../state/settings.dart';
 import 'legal_screen.dart';
 import 'navigation.dart';
+import 'player_screen.dart' show fitLabel;
 import 'profiles_screen.dart';
 import 'subscription_screen.dart';
 import '../services/license.dart';
@@ -244,6 +245,24 @@ class SettingsView extends StatelessWidget {
             value: s.hwdec,
             onChanged: (v) => s.update((x) => x.hwdec = v),
           ),
+          ListTile(
+            leading: const Icon(Icons.aspect_ratio_rounded),
+            title: Text(tr('fit.title')),
+            subtitle: Text(fitLabel(s.videoFit)),
+            onTap: () async {
+              final v = await pick(tr('fit.title'),
+                  [for (final f in VideoFit.values) (f, fitLabel(f))], s.videoFit);
+              if (v != null) s.update((x) => x.videoFit = v);
+            },
+          ),
+          if (Platform.isAndroid || Platform.isIOS)
+            SwitchListTile(
+              secondary: const Icon(Icons.picture_in_picture_alt_rounded),
+              title: Text(tr('settings.autoPip')),
+              subtitle: Text(tr(Platform.isIOS ? 'settings.autoPipIos' : 'settings.autoPipHint')),
+              value: s.autoPip,
+              onChanged: (v) => s.update((x) => x.autoPip = v),
+            ),
           SwitchListTile(
             secondary: const Icon(Icons.pause_circle_outline_rounded),
             title: Text(tr('settings.timeshift')),

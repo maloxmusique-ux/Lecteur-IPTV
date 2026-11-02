@@ -34,14 +34,24 @@ Nous ne demandons ni ton nom, ni ton courriel, ni ton numéro de téléphone pou
 
 ## Paiements
 
-Les paiements sont traités par **Stripe** (ou par Apple et Google si tu payes dans
-leur boutique). Nous ne voyons jamais ton numéro de carte. Stripe nous transmet seulement
-le montant, la date, le forfait et un lien vers ton reçu. Stripe peut te demander ton courriel
-pour t'envoyer le reçu : voir la politique de Stripe sur https://stripe.com/fr-ca/privacy.
+- **App Store et Google Play** : le paiement est fait par Apple ou Google avec ton compte.
+  Nous ne recevons ni ton nom, ni ton courriel, ni tes informations de paiement.
+  L'app vérifie seulement auprès de la boutique si un abonnement Canalix est actif.
+- **Téléchargement direct** : les paiements sont traités par **Stripe**. Nous ne voyons
+  jamais ton numéro de carte. Stripe nous transmet seulement le montant, la date, le forfait
+  et un lien vers ton reçu. Stripe peut te demander ton courriel pour t'envoyer le reçu :
+  voir https://stripe.com/fr-ca/privacy.
+
+## Connexion protégée (VPN)
+
+Si tu choisis d'utiliser ton propre VPN dans Canalix, ses informations de connexion
+restent chiffrées sur ton appareil. Ton trafic passe alors par ton fournisseur VPN,
+selon sa propre politique de confidentialité.
 
 ## Ce que nous ne faisons pas
 
 - Aucune publicité, aucun pistage, aucun outil d'analyse tiers dans l'app.
+- Aucun compte à créer : nous ne demandons ni nom, ni courriel, ni mot de passe.
 - Nous ne vendons ni ne louons aucune donnée.
 - Nous ne savons pas quelles chaînes ou quels films tu regardes.
 
