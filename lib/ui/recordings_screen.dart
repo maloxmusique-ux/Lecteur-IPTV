@@ -56,27 +56,42 @@ class RecordingsView extends StatelessWidget {
         ],
       ),
       body: rec.items.isEmpty && rec.rules.isEmpty
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.fiber_manual_record_outlined,
-                        size: 56, color: theme.colorScheme.primary),
-                    const SizedBox(height: 12),
-                    Text(tr('rec.empty'), textAlign: TextAlign.center),
-                  ],
+          ? Column(
+              children: [
+                const _StorageBar(),
+                Expanded(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.fiber_manual_record_outlined,
+                              size: 56, color: theme.colorScheme.primary),
+                          const SizedBox(height: 12),
+                          Text(tr('rec.empty'), textAlign: TextAlign.center),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             )
           : ListView(
               padding: const EdgeInsets.only(bottom: 24),
               children: [
+                const _StorageBar(),
+                const _OnTimeHint(),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                   child: Text(
-                      tr(Platform.isAndroid ? 'rec.keepOpenAndroid' : 'rec.keepOpen'),
+                      tr(Platform.isAndroid
+                          ? 'rec.keepOpenAndroid'
+                          : Platform.isWindows
+                              ? 'rec.keepOpenWindows'
+                              : Platform.isIOS
+                                  ? 'rec.keepOpenIos'
+                                  : 'rec.keepOpen'),
                       style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant)),
                 ),
@@ -98,6 +113,161 @@ class RecordingsView extends StatelessWidget {
                 ],
               ],
             ),
+    );
+  }
+}
+
+/// Espace disque restant pour les enregistrements.
+class _StorageBar extends StatefulWidget {
+  const _StorageBar();
+
+  @override
+  State<_StorageBar> createState() => _StorageBarState();
+}
+
+class _StorageBarState extends State<_StorageBar> {
+  ({int free, int total, int used})? _s;
+  int _lastUsed = -1;
+  DateTime _at = DateTime(2000);
+
+  void _refresh(RecordingService rec) {
+    final used = rec.items.fold<int>(0, (a, r) => a + r.bytes);
+    // Pas plus d'une mesure toutes les 20 s pendant un enregistrement.
+    if (used == _lastUsed ||
+        DateTime.now().difference(_at) < const Duration(seconds: 20) &&
+            _s != null) {
+      return;
+    }
+    _lastUsed = used;
+    _at = DateTime.now();
+    rec.storage().then((v) {
+      if (mounted) setState(() => _s = v);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rec = context.watch<RecordingService>();
+    _refresh(rec);
+    final s = _s;
+    final theme = Theme.of(context);
+    if (s == null) return const SizedBox(height: 8);
+    final known = s.total > 0;
+    final usedRatio = known ? 1 - s.free / s.total : 0.0;
+    final low = known && (s.free < (2 << 30) || s.free / s.total < 0.05);
+    final color = low ? theme.colorScheme.error : theme.colorScheme.primary;
+    return Card(
+      margin: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.sd_storage_rounded, color: color, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    known
+                        ? tr('rec.storageFree', [formatBytes(s.free)])
+                        : tr('rec.storageUnknown'),
+                    style: theme.textTheme.titleSmall?.copyWith(color: color),
+                  ),
+                ),
+                if (known)
+                  Text(tr('rec.storageOf', [formatBytes(s.total)]),
+                      style: theme.textTheme.bodySmall),
+              ],
+            ),
+            if (known) ...[
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: usedRatio.clamp(0.0, 1.0),
+                  minHeight: 8,
+                  color: color,
+                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                ),
+              ),
+            ],
+            const SizedBox(height: 8),
+            Text(
+              tr('rec.storageUsed', [formatBytes(s.used)]) +
+                  (known
+                      ? ' · ${tr('rec.storageHours', [(s.free / (3 << 30)).floor()])}'
+                      : ''),
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+            if (low) ...[
+              const SizedBox(height: 6),
+              Text(tr('rec.storageLow'),
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.error)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Android 12+ : proposer l'autorisation pour demarrer a l'heure exacte.
+class _OnTimeHint extends StatefulWidget {
+  const _OnTimeHint();
+
+  @override
+  State<_OnTimeHint> createState() => _OnTimeHintState();
+}
+
+class _OnTimeHintState extends State<_OnTimeHint> with WidgetsBindingObserver {
+  bool _ok = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _check();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _check();
+  }
+
+  Future<void> _check() async {
+    final ok = await context.read<RecordingService>().canStartOnTime();
+    if (mounted && ok != _ok) setState(() => _ok = ok);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_ok) return const SizedBox.shrink();
+    final rec = context.read<RecordingService>();
+    if (!rec.items.any((r) => r.status == RecStatus.scheduled) &&
+        rec.rules.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Card(
+      margin: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+      color: Theme.of(context).colorScheme.tertiaryContainer,
+      child: ListTile(
+        leading: const Icon(Icons.alarm_rounded),
+        title: Text(tr('rec.exactTitle')),
+        subtitle: Text(tr('rec.exactText')),
+        trailing: FilledButton.tonal(
+          onPressed: rec.askStartOnTime,
+          child: Text(tr('rec.exactAllow')),
+        ),
+      ),
     );
   }
 }

@@ -39,6 +39,9 @@ class Win32Window {
   // Show the current window. Returns true if the window was successfully shown.
   bool Show();
 
+  // Demarrage reduit (enregistrement lance par une tache Windows).
+  static void SetStartMinimized(bool value) { start_minimized_ = value; }
+
   // Release OS resources associated with window.
   void Destroy();
 
@@ -97,6 +100,8 @@ class Win32Window {
 
   // window handle for hosted content.
   HWND child_content_ = nullptr;
+
+  static inline bool start_minimized_ = false;
 };
 
 #endif  // RUNNER_WIN32_WINDOW_H_

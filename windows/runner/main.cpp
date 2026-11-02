@@ -22,6 +22,25 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   std::vector<std::string> command_line_arguments =
       GetCommandLineArguments();
 
+  // Lancement automatique pour un enregistrement prevu (tache Windows) :
+  // fenetre reduite, et rien a faire si Canalix tourne deja.
+  bool background = false;
+  for (const auto& a : command_line_arguments) {
+    if (a == "--background") background = true;
+  }
+  HANDLE single = ::CreateMutexW(nullptr, TRUE, L"Local\\CanalixPlayerSingleInstance");
+  if (single != nullptr && ::GetLastError() == ERROR_ALREADY_EXISTS) {
+    if (!background) {
+      HWND existing = ::FindWindowW(L"FLUTTER_RUNNER_WIN32_WINDOW", L"Canalix");
+      if (existing) {
+        ::ShowWindow(existing, SW_RESTORE);
+        ::SetForegroundWindow(existing);
+      }
+    }
+    return EXIT_SUCCESS;
+  }
+  Win32Window::SetStartMinimized(background);
+
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
 
   FlutterWindow window(project);

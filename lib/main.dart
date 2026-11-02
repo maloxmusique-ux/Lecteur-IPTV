@@ -3,6 +3,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'dart:io';
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -28,7 +29,7 @@ import 'ui/reminder_alert.dart';
 /// Navigateur global (alertes de rappel affichees par-dessus tout).
 final navigatorKey = GlobalKey<NavigatorState>();
 
-Future<void> main() async {
+Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
   await migrateFromStreamFlow();
@@ -72,6 +73,11 @@ Future<void> main() async {
     }
   });
 
+  // Windows : ouvert tout seul par la tache planifiee pour un
+  // enregistrement. On se referme apres si personne n'a touche l'app.
+  if (Platform.isWindows && args.contains('--background')) {
+    _autoQuitWhenIdle(recorder);
+  }
   runApp(
     MultiProvider(
       providers: [
@@ -226,4 +232,31 @@ class _PipAware extends StatelessWidget {
       ],
     );
   }
+}
+
+void _autoQuitWhenIdle(RecordingService recorder) {
+  var touched = false;
+  GestureBinding.instance.pointerRouter
+      .addGlobalRoute((e) => touched = touched || e is PointerDownEvent);
+  HardwareKeyboard.instance.addHandler((_) {
+    touched = true;
+    return false;
+  });
+  final started = DateTime.now();
+  Timer.periodic(const Duration(minutes: 1), (t) {
+    if (touched) {
+      t.cancel();
+      return;
+    }
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final busy = recorder.items.any((r) =>
+        r.active ||
+        (r.status == RecStatus.scheduled &&
+            r.start - now < const Duration(minutes: 15).inMilliseconds));
+    // Marge de 5 minutes au demarrage (connexion, guide).
+    if (!busy && DateTime.now().difference(started).inMinutes >= 5) {
+      t.cancel();
+      exit(0);
+    }
+  });
 }

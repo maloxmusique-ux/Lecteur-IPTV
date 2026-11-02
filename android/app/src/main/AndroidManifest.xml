@@ -8,6 +8,8 @@
     <!-- Enregistrement en arriere-plan. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+    <!-- Demarrer un enregistrement prevu a l'heure exacte (accord de l'utilisateur sur Android 14+). -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
     <!-- Recherche des Chromecast sur le reseau. -->
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"/>
@@ -19,7 +21,7 @@
         android:label="Canalix"
         android:usesCleartextTraffic="true"
         android:banner="@drawable/banner"
-        android:name="${applicationName}"
+        android:name=".CanalixApp"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
@@ -50,6 +52,15 @@
             android:name=".RecordingService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+        <!-- Enregistrements prevus : reveil a l'heure, meme app fermee ou apres redemarrage. -->
+        <receiver android:name=".AlarmReceiver" android:exported="false" />
+        <receiver android:name=".BootReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED"/>
+            </intent-filter>
+        </receiver>
         <!-- Notifications programmees (rappels). -->
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">

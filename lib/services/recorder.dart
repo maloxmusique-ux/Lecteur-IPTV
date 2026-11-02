@@ -309,15 +309,22 @@ class RecordingService extends ChangeNotifier {
   static const _bg = MethodChannel('streamflow/background');
   String? _bgState;
 
-  /// Android : garde l'app en vie (service au premier plan) tant qu'un
-  /// enregistrement est en cours ou prevu.
+  /// Fait en sorte que les enregistrements se fassent meme app fermee :
+  /// - Android : service au premier plan + alarme systeme qui relance
+  ///   l'app a l'heure prevue (meme apres un redemarrage).
+  /// - Windows : tache planifiee qui ouvre Canalix (reduit) a l'heure
+  ///   prevue et reveille l'ordinateur s'il est en veille.
   Future<void> _syncBackground() async {
-    if (!Platform.isAndroid) return;
+    if (!Platform.isAndroid && !Platform.isWindows) return;
     final active = items.where((r) => r.active).toList();
     final planned = items
         .where((r) => r.status == RecStatus.scheduled)
         .toList()
       ..sort((a, b) => a.start.compareTo(b.start));
+    if (Platform.isWindows) {
+      _syncWindowsTask(planned.isEmpty ? null : planned.first);
+      return;
+    }
     String? state;
     Map<String, Object>? args;
     if (active.isNotEmpty) {
@@ -329,7 +336,7 @@ class RecordingService extends ChangeNotifier {
       };
     } else if (planned.isNotEmpty) {
       final n = planned.first;
-      state = 'plan:${n.id}';
+      state = 'plan:${n.id}:${n.start}';
       args = {
         'title': tr('rec.bgPlanned'),
         'text': '${n.title} · ${dayTime(n.start)}',
@@ -339,6 +346,10 @@ class RecordingService extends ChangeNotifier {
     if (state == _bgState) return;
     _bgState = state;
     try {
+      await _bg.invokeMethod('alarm', {
+        'at': planned.isEmpty ? 0 : planned.first.start,
+        'title': planned.isEmpty ? '' : planned.first.title,
+      });
       if (args == null) {
         await _bg.invokeMethod('stop');
       } else {
@@ -346,6 +357,128 @@ class RecordingService extends ChangeNotifier {
         await _bg.invokeMethod('start', args);
       }
     } catch (_) {}
+  }
+
+  /// Android 12+ : l'autorisation "Alarmes et rappels" permet de demarrer
+  /// a la seconde pres. Sans elle, Android peut decaler de quelques minutes.
+  Future<bool> canStartOnTime() async {
+    if (!Platform.isAndroid) return true;
+    try {
+      return await _bg.invokeMethod<bool>('canExact') ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  Future<void> askStartOnTime() async {
+    try {
+      await _bg.invokeMethod('askExact');
+    } catch (_) {}
+  }
+
+  static const _winTask = r'Canalix\ProchainEnregistrement';
+  String? _winState;
+
+  Future<void> _syncWindowsTask(Recording? next) async {
+    final state = next == null ? '' : '${next.id}:${next.start}';
+    if (state == _winState) return;
+    _winState = state;
+    try {
+      if (next == null) {
+        await Process.run('schtasks', ['/Delete', '/TN', _winTask, '/F'],
+            runInShell: false);
+        return;
+      }
+      // Ouvre l'app 2 minutes avant pour laisser le temps de se connecter.
+      final at = DateTime.fromMillisecondsSinceEpoch(next.start)
+          .subtract(const Duration(minutes: 2));
+      String two(int n) => n.toString().padLeft(2, '0');
+      final boundary = '${at.year}-${two(at.month)}-${two(at.day)}'
+          'T${two(at.hour)}:${two(at.minute)}:${two(at.second)}';
+      String esc(String v) => v
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;');
+      final exe = esc(Platform.resolvedExecutable);
+      final xml = '<?xml version="1.0" encoding="UTF-16"?>\r\n'
+          '<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">'
+          '<RegistrationInfo><Description>${esc(tr('rec.bgPlanned'))} : ${esc(next.title)}</Description></RegistrationInfo>'
+          '<Triggers><TimeTrigger><StartBoundary>$boundary</StartBoundary><Enabled>true</Enabled></TimeTrigger></Triggers>'
+          '<Principals><Principal id="Author"><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>'
+          '<Settings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>'
+          '<DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>'
+          '<StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>'
+          '<StartWhenAvailable>true</StartWhenAvailable>'
+          '<WakeToRun>true</WakeToRun>'
+          '<ExecutionTimeLimit>PT0S</ExecutionTimeLimit>'
+          '<Enabled>true</Enabled></Settings>'
+          '<Actions Context="Author"><Exec><Command>"$exe"</Command><Arguments>--background</Arguments></Exec></Actions>'
+          '</Task>';
+      final f = File('${Directory.systemTemp.path}\\canalix_task.xml');
+      // UTF-16 LE avec BOM, comme l'attend schtasks.
+      final units = <int>[0xFF, 0xFE];
+      for (final c in xml.codeUnits) {
+        units
+          ..add(c & 0xFF)
+          ..add(c >> 8);
+      }
+      await f.writeAsBytes(units, flush: true);
+      await Process.run(
+          'schtasks', ['/Create', '/TN', _winTask, '/XML', f.path, '/F']);
+      try {
+        await f.delete();
+      } catch (_) {}
+    } catch (_) {
+      _winState = null;
+    }
+  }
+
+  /// Espace libre et total (octets) du disque des enregistrements, et
+  /// la place prise par les enregistrements termines ou en cours.
+  Future<({int free, int total, int used})?> storage() async {
+    final used = items.fold<int>(0, (a, r) => a + r.bytes);
+    try {
+      final dir = (await folder()).path;
+      int? free, total;
+      if (Platform.isAndroid) {
+        final m = await _bg.invokeMapMethod<String, dynamic>(
+            'storage', {'path': dir});
+        free = (m?['free'] as num?)?.toInt();
+        total = (m?['total'] as num?)?.toInt();
+      } else if (Platform.isWindows) {
+        final drive = dir.length >= 2 && dir[1] == ':'
+            ? dir.substring(0, 1)
+            : 'C';
+        final r = await Process.run('powershell', [
+          '-NoProfile',
+          '-NonInteractive',
+          '-Command',
+          r"$d=Get-PSDrive -Name " "$drive" r"; Write-Output ($d.Free.ToString() + ' ' + ($d.Free + $d.Used).ToString())",
+        ]);
+        final parts = '${r.stdout}'.trim().split(RegExp(r'\s+'));
+        if (parts.length == 2) {
+          free = int.tryParse(parts[0]);
+          total = int.tryParse(parts[1]);
+        }
+      } else if (Platform.isMacOS || Platform.isLinux) {
+        final r = await Process.run('df', ['-Pk', dir]);
+        final lines = '${r.stdout}'.trim().split('\n');
+        if (lines.length >= 2) {
+          final c = lines.last.trim().split(RegExp(r'\s+'));
+          if (c.length >= 4) {
+            total = (int.tryParse(c[1]) ?? 0) * 1024;
+            free = (int.tryParse(c[3]) ?? 0) * 1024;
+          }
+        }
+      }
+      if (free == null || total == null || total <= 0) {
+        return (free: -1, total: -1, used: used);
+      }
+      return (free: free, total: total, used: used);
+    } catch (_) {
+      return (free: -1, total: -1, used: used);
+    }
   }
 
   /// Dossier ou sont ranges les enregistrements.
