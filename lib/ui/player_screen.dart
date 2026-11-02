@@ -14,7 +14,9 @@ import '../services/recorder.dart';
 import '../state/app_state.dart';
 import '../state/settings.dart';
 import '../services/cast.dart';
+import '../services/pip.dart';
 import 'cast_ui.dart';
+import 'navigation.dart' show toast;
 import 'catchup_screen.dart';
 import 'programme_sheet.dart';
 import 'widgets/channel_logo.dart';
@@ -274,9 +276,20 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (Platform.isIOS) {
       final c = engine.current;
       if (c == null) return;
+      final ua = context.read<AppState>().active?.userAgent ?? '';
+      final pos = engine.player.state.position;
+      toast(context, tr('pip.opening'));
+      // Le flux s'ouvre dans la fenetre flottante, puis on coupe Canalix
+      // (une seule connexion au fournisseur a la fois).
       await engine.player.pause();
-      if (!mounted) return;
-      await AirPlay.play(c, userAgent: context.read<AppState>().active?.userAgent ?? '');
+      final ok = await IosMiniPlayer.start(c, userAgent: ua, position: pos);
+      if (!ok) {
+        await engine.player.play();
+        if (mounted) toast(context, tr('pip.failed'));
+        return;
+      }
+      await engine.stop();
+      if (mounted) Navigator.of(context).maybePop();
       return;
     }
     try {
