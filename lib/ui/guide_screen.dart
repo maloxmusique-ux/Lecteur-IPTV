@@ -215,14 +215,9 @@ class _GuideViewState extends State<GuideView> {
                 height: 40,
                 child: Row(children: [groupMenu, const SizedBox(width: 8), Expanded(child: dayChips), ...timeNav]),
               )
-            else ...[
-              SizedBox(
-                height: 40,
-                child: Row(children: [Flexible(child: groupMenu), const Spacer(), ...timeNav]),
-              ),
-              const SizedBox(height: 6),
-              SizedBox(height: 40, child: dayChips),
-            ],
+            else
+              // Telephone : seulement le choix des chaines (vue en liste).
+              SizedBox(height: 40, child: Align(alignment: Alignment.centerLeft, child: groupMenu)),
           ],
         ],
       ),
@@ -247,6 +242,16 @@ class _GuideViewState extends State<GuideView> {
           header,
           Expanded(child: Center(child: Text(tr('common.noResults')))),
         ]),
+      );
+    }
+
+    // Telephone : une grille est illisible sur un ecran etroit. On affiche
+    // chaque chaine avec l'emission en cours et la suivante ; un toucher
+    // ouvre l'horaire complet de la chaine.
+    if (!wide) {
+      return SafeArea(
+        bottom: false,
+        child: Column(children: [header, Expanded(child: _PhoneGuide(channels: channels))]),
       );
     }
 
@@ -772,6 +777,190 @@ class _SearchResults extends StatelessWidget {
           onTap: () => showProgrammeSheet(context, c, p),
         );
       },
+    );
+  }
+}
+
+
+/// Guide sur telephone : liste des chaines avec maintenant / ensuite.
+class _PhoneGuide extends StatelessWidget {
+  final List<Channel> channels;
+  const _PhoneGuide({required this.channels});
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final theme = Theme.of(context);
+    return ValueListenableBuilder<int>(
+      valueListenable: app.minuteTick,
+      builder: (context, _, _) {
+        final now = DateTime.now().millisecondsSinceEpoch;
+        return ListView.separated(
+          padding: const EdgeInsets.only(bottom: 24),
+          itemCount: channels.length,
+          separatorBuilder: (_, _) => const Divider(height: 1, indent: 76),
+          itemBuilder: (context, i) {
+            final c = channels[i];
+            final (cur, next) = app.epg.nowNext(c, now);
+            return InkWell(
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => _ChannelSchedule(channel: c))),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ChannelLogo(url: c.logo, name: c.name, width: 52, height: 40),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(c.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 4),
+                          if (cur == null && next == null)
+                            Text(tr('guide.noInfo'),
+                                style: theme.textTheme.bodySmall
+                                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                          if (cur != null) ...[
+                            Text('${hm(cur.start)}  ${cur.title}',
+                                maxLines: 1, overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodyMedium),
+                            const SizedBox(height: 4),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(2),
+                              child: LinearProgressIndicator(value: cur.progress(now), minHeight: 3),
+                            ),
+                          ],
+                          if (next != null) ...[
+                            const SizedBox(height: 4),
+                            Text('${hm(next.start)}  ${next.title}',
+                                maxLines: 1, overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall
+                                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right_rounded),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+/// Horaire complet d'une chaine, jour par jour (telephone).
+class _ChannelSchedule extends StatefulWidget {
+  final Channel channel;
+  const _ChannelSchedule({required this.channel});
+
+  @override
+  State<_ChannelSchedule> createState() => _ChannelScheduleState();
+}
+
+class _ChannelScheduleState extends State<_ChannelSchedule> {
+  late DateTime _day = DateTime.now();
+  final _scroll = ScrollController();
+  bool _jumped = false;
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final theme = Theme.of(context);
+    final c = widget.channel;
+    final all = app.epg.forChannel(c) ?? const <Programme>[];
+    final today = DateTime.now();
+    final days = [
+      for (var i = -1; i < 7; i++) DateTime(today.year, today.month, today.day + i),
+    ];
+    final dayStart = DateTime(_day.year, _day.month, _day.day).millisecondsSinceEpoch;
+    final dayEnd = DateTime(_day.year, _day.month, _day.day + 1).millisecondsSinceEpoch;
+    final list = all.where((p) => p.stop > dayStart && p.start < dayEnd).toList();
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final liveIdx = list.indexWhere((p) => p.isLive(now));
+    if (!_jumped && liveIdx > 2) {
+      _jumped = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scroll.hasClients) _scroll.jumpTo((liveIdx - 1) * 64.0);
+      });
+    }
+    return Scaffold(
+      appBar: AppBar(
+        titleSpacing: 0,
+        title: Row(children: [
+          ChannelLogo(url: c.logo, name: c.name, width: 40, height: 32),
+          const SizedBox(width: 10),
+          Expanded(child: Text(c.name, maxLines: 1, overflow: TextOverflow.ellipsis)),
+        ]),
+      ),
+      body: Column(
+        children: [
+          SizedBox(
+            height: 48,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              children: [
+                for (final d in days)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: ChoiceChip(
+                      label: Text(dayLabel(d)),
+                      selected: d.year == _day.year && d.month == _day.month && d.day == _day.day,
+                      onSelected: (_) => setState(() {
+                        _day = d;
+                        _jumped = true;
+                        if (_scroll.hasClients) _scroll.jumpTo(0);
+                      }),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: list.isEmpty
+                ? Center(child: Text(tr('guide.noInfo')))
+                : ListView.builder(
+                    controller: _scroll,
+                    itemCount: list.length,
+                    itemExtent: 64,
+                    itemBuilder: (context, i) {
+                      final p = list[i];
+                      final live = p.isLive(now);
+                      return ListTile(
+                        selected: live,
+                        selectedTileColor: theme.colorScheme.primary.withValues(alpha: 0.12),
+                        leading: SizedBox(
+                          width: 52,
+                          child: Text(hm(p.start),
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: live ? FontWeight.w800 : FontWeight.w500)),
+                        ),
+                        title: Text(p.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        subtitle: live
+                            ? LinearProgressIndicator(value: p.progress(now), minHeight: 3)
+                            : Text('${p.duration.inMinutes} min'),
+                        onTap: () => showProgrammeSheet(context, c, p),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }

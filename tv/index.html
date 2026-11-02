@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920, height=1080">
+<title>Canalix</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<!-- Lecteur : video HTML (LG, navigateur) ou AVPlay (Samsung). -->
+<div id="stage" class="stage hidden">
+  <video id="video" playsinline></video>
+  <object id="avplay" type="application/avplayer" class="hidden"></object>
+</div>
+
+<!-- Acceptation legale (premier lancement) -->
+<section id="legal" class="screen hidden">
+  <div class="panel center">
+    <img src="icon.png" class="logo-big" alt="">
+    <h1 data-t="legal.title"></h1>
+    <p data-t="legal.text" class="lead"></p>
+    <button class="btn primary focusable" id="legal-ok" data-t="legal.accept"></button>
+  </div>
+</section>
+
+<!-- Ajout d'une source -->
+<section id="setup" class="screen hidden">
+  <div class="panel">
+    <h1 data-t="setup.title"></h1>
+    <p class="muted" data-t="setup.hint"></p>
+    <div class="tabs" id="setup-tabs">
+      <button class="tab focusable active" data-kind="xtream">Xtream Codes</button>
+      <button class="tab focusable" data-kind="m3u">M3U</button>
+    </div>
+    <div id="form-xtream" class="form">
+      <label data-t="setup.server"></label><input class="focusable" id="x-server" placeholder="http://exemple.com:8080" autocomplete="off">
+      <label data-t="setup.user"></label><input class="focusable" id="x-user" autocomplete="off">
+      <label data-t="setup.pass"></label><input class="focusable" id="x-pass" type="password" autocomplete="off">
+    </div>
+    <div id="form-m3u" class="form hidden">
+      <label data-t="setup.url"></label><input class="focusable" id="m-url" placeholder="http://exemple.com/liste.m3u" autocomplete="off">
+    </div>
+    <p id="setup-error" class="error"></p>
+    <div class="row">
+      <button class="btn primary focusable" id="setup-save" data-t="setup.save"></button>
+      <button class="btn focusable" id="setup-demo" data-t="setup.demo"></button>
+    </div>
+  </div>
+</section>
+
+<!-- Accueil : categories a gauche, chaines au centre, apercu a droite -->
+<section id="home" class="screen hidden">
+  <header class="top">
+    <img src="icon.png" class="logo" alt="">
+    <nav id="sections">
+      <button class="tab focusable" data-section="live" data-t="nav.live"></button>
+      <button class="tab focusable" data-section="movie" data-t="nav.movies"></button>
+      <button class="tab focusable" data-section="settings" data-t="nav.settings"></button>
+    </nav>
+    <div id="clock" class="clock"></div>
+  </header>
+  <div class="cols">
+    <div class="col groups"><div id="groups" class="list"></div></div>
+    <div class="col items"><div id="count" class="muted small"></div><div id="items" class="list"></div></div>
+    <div class="col preview">
+      <div id="preview-box" class="preview-box"><div id="preview-hint" class="hint" data-t="home.select"></div></div>
+      <div id="preview-info" class="info"></div>
+    </div>
+  </div>
+  <footer class="keys" data-t="home.keys"></footer>
+</section>
+
+<!-- Bandeau du plein ecran -->
+<div id="osd" class="osd hidden"></div>
+<div id="toast" class="toast hidden"></div>
+
+<!-- Reglages -->
+<section id="settings" class="screen hidden">
+  <div class="panel wide">
+    <h1 data-t="nav.settings"></h1>
+    <div class="menu" id="settings-menu"></div>
+  </div>
+</section>
+
+<!-- Forfaits -->
+<section id="paywall" class="screen hidden">
+  <div class="panel wide">
+    <h1 id="pay-title"></h1>
+    <p class="muted" data-t="pay.what"></p>
+    <div id="plans" class="plans"></div>
+    <div id="pay-terms" class="terms"></div>
+    <div id="pay-qr" class="qr hidden"></div>
+    <div class="row">
+      <button class="btn focusable" id="pay-code" data-t="code.have"></button>
+      <button class="btn focusable" id="pay-refresh" data-t="pay.alreadyPaid"></button>
+      <button class="btn focusable" id="pay-back" data-t="common.back"></button>
+    </div>
+    <p class="muted small" id="pay-mac"></p>
+  </div>
+</section>
+
+<!-- Samsung : API de la tele (AVPlay, adresse MAC). Ignore ailleurs. -->
+<script src="$WEBAPIS/webapis/webapis.js"></script>
+<script src="js/config.js"></script>
+<script src="lib/hls.min.js"></script>
+<script src="lib/qrcode.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/store.js"></script>
+<script src="js/api.js"></script>
+<script src="js/license.js"></script>
+<script src="js/player.js"></script>
+<script src="js/nav.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

@@ -122,6 +122,28 @@ jobs:
             Canalix-windows.zip
             Canalix-setup.exe
 
+  tv:
+    name: Teles Samsung et LG
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Paquets tele
+        env:
+          LICENSE_API: ${{ vars.LICENSE_API }}
+          LICENSE_KEY: ${{ vars.LICENSE_KEY }}
+        run: |
+          ./tv/build.sh
+          mv tv/dist/Canalix-lg.ipk tv/dist/Canalix-samsung.zip .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Canalix-tv
+          path: |
+            Canalix-lg.ipk
+            Canalix-samsung.zip
+
   apple:
     name: Mac et iPhone
     needs: test
@@ -151,7 +173,7 @@ jobs:
 
   publier:
     name: Publier la derniere version
-    needs: [android, windows, apple]
+    needs: [android, windows, apple, tv]
     # Windows et Android sont publies meme si la compilation Apple echoue.
     if: always() && needs.android.result == 'success' && needs.windows.result == 'success'
     runs-on: ubuntu-latest
@@ -173,5 +195,6 @@ jobs:
 
           - **Android / Android TV** : télécharge \`Canalix-android.apk\` et ouvre-le pour l'installer.
           - **Windows** : télécharge \`Canalix-setup.exe\` et lance-le (installation avec raccourcis). Version sans installation : \`Canalix-windows.zip\`.
+          - **Télé LG** : \`Canalix-lg.ipk\` (mode développeur LG). **Télé Samsung** : \`Canalix-samsung.zip\` à signer dans Tizen Studio (voir tv/README.md).
           - **Mac** : télécharge \`Canalix-macos.zip\`, décompresse-le, puis clic droit sur Canalix et Ouvrir." \
             --prerelease

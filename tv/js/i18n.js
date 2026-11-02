@@ -1,0 +1,86 @@
+// Textes de l'app tele (francais, anglais).
+var I18N = {
+  fr: {
+    'legal.title': 'Bienvenue dans Canalix',
+    'legal.text': 'Canalix est un lecteur vidéo. Il ne fournit aucune chaîne ni aucun contenu. Ajoute ta propre liste de lecture et regarde seulement des contenus que tu as le droit de regarder.',
+    'legal.accept': 'J\'ai compris',
+    'setup.title': 'Ajouter ma liste de lecture',
+    'setup.hint': 'Entre les informations fournies par ton fournisseur, ou essaie la démonstration.',
+    'setup.server': 'Adresse du serveur', 'setup.user': 'Nom d\'utilisateur', 'setup.pass': 'Mot de passe',
+    'setup.url': 'Adresse de la liste M3U',
+    'setup.save': 'Continuer', 'setup.demo': 'Essayer la démonstration',
+    'setup.loading': 'Chargement de ta liste…', 'setup.failed': 'Impossible de charger la liste : vérifie les informations.',
+    'nav.live': 'TV en direct', 'nav.movies': 'Films', 'nav.settings': 'Réglages',
+    'home.select': 'Choisis une chaîne avec OK.\nOK une 2e fois : plein écran.',
+    'home.keys': '◀ ▶ changer de colonne · ▲ ▼ parcourir · OK aperçu, puis plein écran · RETOUR revenir',
+    'home.all': 'Tout', 'home.count': '{0} éléments',
+    'player.reconnecting': 'Reconnexion…', 'player.failed': 'Cette chaîne ne répond pas.',
+    'set.source': 'Ma liste de lecture', 'set.sourceSub': 'Changer de liste',
+    'set.lang': 'Langue', 'set.sub': 'Mon abonnement', 'set.reload': 'Recharger l\'application',
+    'set.reloadSub': 'Si quelque chose bloque.', 'set.help': 'Aide et confidentialité',
+    'set.mac': 'Adresse MAC de cette télé : {0}',
+    'pay.trialOver': 'Ton essai gratuit est terminé', 'pay.subOver': 'Ton abonnement est terminé',
+    'pay.trialLeft': 'Essai gratuit : encore {0} jour(s)', 'pay.choose': 'Choisis ton forfait',
+    'pay.what': 'Pour cette télé seulement. Aucune chaîne fournie : Canalix lit ta propre liste.',
+    'pay.scan': 'Scanne avec ton téléphone pour payer {0} :', 'pay.wait': 'En attente du paiement… la télé se débloque toute seule.',
+    'pay.alreadyPaid': 'J\'ai déjà payé', 'pay.testDone': 'Mode test : paiement simulé ✓',
+    'terms.renew': 'Renouvellement automatique. Annulable à tout moment dans Réglages > Mon abonnement, en un clic. Ton accès reste actif jusqu\'à la fin de la période payée.',
+    'terms.once': 'Paiement unique : aucun renouvellement, aucun autre prélèvement.',
+    'plan.monthly': 'Mensuel', 'plan.quarterly': '3 mois', 'plan.semiannual': '6 mois', 'plan.yearly': 'Annuel', 'plan.lifetime': 'À vie',
+    'plan.best': 'Meilleur prix', 'plan.per': '/ mois', 'plan.once': 'une fois',
+    'sub.trial': 'Essai gratuit, encore {0} jour(s)', 'sub.active': 'Actif · {0}', 'sub.expired': 'Expiré',
+    'sub.until': 'Jusqu\'au {0}', 'sub.next': 'Prochain paiement le {0}', 'sub.cancel': 'Annuler mon abonnement',
+    'sub.cancelled': 'Renouvellement annulé. Accès actif jusqu\'au {0}.', 'sub.resume': 'Réactiver le renouvellement',
+    'sub.lifetime': 'Accès à vie', 'sub.gift': 'Accès offert',
+    'code.have': 'J\'ai un code', 'code.prompt': 'Entre ton code cadeau', 'code.ok': 'Code accepté ✓', 'code.bad': 'Code refusé : {0}',
+    'common.back': 'Retour', 'common.ok': 'OK', 'common.yes': 'Oui', 'common.no': 'Non',
+    'exit.q': 'Quitter Canalix ?',
+  },
+  en: {
+    'legal.title': 'Welcome to Canalix',
+    'legal.text': 'Canalix is a video player. It provides no channels or content. Add your own playlist and only watch content you have the right to watch.',
+    'legal.accept': 'I understand',
+    'setup.title': 'Add my playlist',
+    'setup.hint': 'Enter the details from your provider, or try the demo.',
+    'setup.server': 'Server address', 'setup.user': 'Username', 'setup.pass': 'Password',
+    'setup.url': 'M3U playlist address',
+    'setup.save': 'Continue', 'setup.demo': 'Try the demo',
+    'setup.loading': 'Loading your playlist…', 'setup.failed': 'Could not load the playlist: check the details.',
+    'nav.live': 'Live TV', 'nav.movies': 'Movies', 'nav.settings': 'Settings',
+    'home.select': 'Pick a channel with OK.\nOK again: full screen.',
+    'home.keys': '◀ ▶ switch column · ▲ ▼ browse · OK preview, then full screen · BACK go back',
+    'home.all': 'All', 'home.count': '{0} items',
+    'player.reconnecting': 'Reconnecting…', 'player.failed': 'This channel is not responding.',
+    'set.source': 'My playlist', 'set.sourceSub': 'Change playlist',
+    'set.lang': 'Language', 'set.sub': 'My subscription', 'set.reload': 'Reload the app',
+    'set.reloadSub': 'If something is stuck.', 'set.help': 'Help and privacy',
+    'set.mac': 'This TV\'s MAC address: {0}',
+    'pay.trialOver': 'Your free trial has ended', 'pay.subOver': 'Your subscription has ended',
+    'pay.trialLeft': 'Free trial: {0} day(s) left', 'pay.choose': 'Choose your plan',
+    'pay.what': 'For this TV only. No channels provided: Canalix plays your own playlist.',
+    'pay.scan': 'Scan with your phone to pay {0}:', 'pay.wait': 'Waiting for payment… the TV unlocks by itself.',
+    'pay.alreadyPaid': 'I already paid', 'pay.testDone': 'Test mode: simulated payment ✓',
+    'terms.renew': 'Renews automatically. Cancel anytime in Settings > My subscription, in one click. Access stays active until the end of the paid period.',
+    'terms.once': 'One-time payment: no renewal, no other charge.',
+    'plan.monthly': 'Monthly', 'plan.quarterly': '3 months', 'plan.semiannual': '6 months', 'plan.yearly': 'Yearly', 'plan.lifetime': 'Lifetime',
+    'plan.best': 'Best value', 'plan.per': '/ month', 'plan.once': 'once',
+    'sub.trial': 'Free trial, {0} day(s) left', 'sub.active': 'Active · {0}', 'sub.expired': 'Expired',
+    'sub.until': 'Until {0}', 'sub.next': 'Next payment on {0}', 'sub.cancel': 'Cancel my subscription',
+    'sub.cancelled': 'Renewal cancelled. Access active until {0}.', 'sub.resume': 'Resume renewal',
+    'sub.lifetime': 'Lifetime access', 'sub.gift': 'Gifted access',
+    'code.have': 'I have a code', 'code.prompt': 'Enter your gift code', 'code.ok': 'Code accepted ✓', 'code.bad': 'Code refused: {0}',
+    'common.back': 'Back', 'common.ok': 'OK', 'common.yes': 'Yes', 'common.no': 'No',
+    'exit.q': 'Quit Canalix?',
+  },
+};
+var LANG = 'fr';
+function t(key, args) {
+  var s = (I18N[LANG] && I18N[LANG][key]) || I18N.fr[key] || key;
+  (args || []).forEach(function (a, i) { s = s.split('{' + i + '}').join(String(a)); });
+  return s;
+}
+function applyI18n(root) {
+  (root || document).querySelectorAll('[data-t]').forEach(function (el) {
+    el.textContent = t(el.getAttribute('data-t'));
+  });
+}
