@@ -6,6 +6,7 @@ import '../models/models.dart';
 import '../services/recorder.dart';
 import '../state/app_state.dart';
 import 'navigation.dart';
+import 'sources_screen.dart' show showSourceEditor;
 import 'widgets/channel_logo.dart';
 
 /// Ce que l'accueil peut ouvrir.
@@ -116,6 +117,26 @@ class LauncherView extends StatelessWidget {
       ),
     ];
 
+    return Stack(
+      children: [
+        _body(context, app, theme, cols, recent, big, small),
+        // Ajouter une liste de lecture : le « + » que tout le monde connait.
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: FloatingActionButton(
+            heroTag: 'launcher_add',
+            tooltip: tr('src.addTitle'),
+            onPressed: () => showSourceEditor(context),
+            child: const Icon(Icons.add_rounded, size: 30),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _body(BuildContext context, AppState app, ThemeData theme, int cols,
+      List<Channel> recent, List<_Tile> big, List<_Tile> small) {
     return SafeArea(
       bottom: false,
       child: CustomScrollView(
@@ -230,7 +251,7 @@ class LauncherView extends StatelessWidget {
             ),
           ],
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
             sliver: SliverGrid.count(
               crossAxisCount: cols == 2 ? 3 : 6,
               mainAxisSpacing: 10,

@@ -7,6 +7,7 @@ import '../l10n/i18n.dart';
 import '../models/models.dart';
 import '../player/player_engine.dart';
 import '../services/net.dart';
+import '../services/recorder.dart';
 import '../state/app_state.dart';
 import 'navigation.dart';
 import 'subscription_screen.dart';
@@ -65,8 +66,18 @@ class _MultiViewScreenState extends State<MultiViewScreen> {
     super.dispose();
   }
 
+  /// Chaque fenetre est un flux separe : le fournisseur la compte comme un
+  /// visionnement. On ne depasse pas ce que l'abonnement permet (moins les
+  /// enregistrements en cours sur cet appareil).
+  int get _limit {
+    final max = context.read<AppState>().account?.maxConnections ?? 0;
+    if (max <= 0) return 4;
+    final rec = context.read<RecordingService>().activeCount;
+    return (max - rec).clamp(1, 4);
+  }
+
   Future<void> _add(Channel c) async {
-    if (_slots.length >= 4) return;
+    if (_slots.length >= 4 || _slots.length >= _limit) return;
     final s = _Slot()..channel = c;
     setState(() => _slots.add(s));
     final ua = context.read<AppState>().active?.userAgent ?? '';
@@ -120,7 +131,7 @@ class _MultiViewScreenState extends State<MultiViewScreen> {
     final n = _slots.length;
     final cells = <Widget>[
       for (var i = 0; i < n; i++) _tile(i),
-      if (n < 4) _addTile(),
+      if (n < 4 && n < _limit) _addTile() else if (n < 4) _limitTile(),
     ];
     final cols = cells.length <= 1 ? 1 : 2;
     final rows = (cells.length / cols).ceil();
@@ -228,6 +239,25 @@ class _MultiViewScreenState extends State<MultiViewScreen> {
       ),
     );
   }
+
+  Widget _limitTile() => Container(
+        color: Colors.white10,
+        padding: const EdgeInsets.all(20),
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.info_outline_rounded,
+                size: 36, color: Colors.white54),
+            const SizedBox(height: 8),
+            Text(
+              tr('multi.limit', [context.read<AppState>().account?.maxConnections ?? 1]),
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white70),
+            ),
+          ],
+        ),
+      );
 
   Widget _addTile() => Material(
         color: Colors.white10,
