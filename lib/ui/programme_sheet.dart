@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/i18n.dart';
 import '../models/models.dart';
@@ -8,6 +11,7 @@ import '../services/recorder.dart';
 import '../services/reminders.dart';
 import '../services/xtream_api.dart';
 import '../state/app_state.dart';
+import 'home_recorder_screen.dart';
 import 'navigation.dart';
 import 'widgets/channel_logo.dart';
 
@@ -140,9 +144,11 @@ class _ProgrammeSheet extends StatelessWidget {
         } else if (mode == RecRepeat.once) {
           recorder.scheduleProgramme(source, c, p);
           toast(host, live ? tr('rec.started') : tr('rec.scheduled'));
+          await iosRecordHint(host);
         } else {
           recorder.addRule(source, c, p, mode);
           toast(host, tr('rec.seriesAdded'));
+          await iosRecordHint(host);
         }
       }
     }
@@ -394,4 +400,38 @@ Future<RecRepeat?> askRepeat(BuildContext context, Channel c, Programme p) {
       ],
     ),
   );
+}
+
+/// iPhone sans enregistreur maison : Apple suspend Canalix des qu'il n'est
+/// plus a l'ecran. On le dit clairement, avec la solution.
+Future<void> iosRecordHint(BuildContext context) async {
+  if (!Platform.isIOS || !context.mounted) return;
+  if (context.read<HomeClient>().paired) return;
+  final prefs = await SharedPreferences.getInstance();
+  if (prefs.getBool('ios_rec_hint_off') ?? false) return;
+  if (!context.mounted) return;
+  final r = await showDialog<String>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      icon: const Icon(Icons.info_outline_rounded),
+      title: Text(tr('rec.iosHintTitle')),
+      content: Text(tr('rec.iosHintText')),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(ctx, 'off'),
+            child: Text(tr('rec.iosHintOff'))),
+        TextButton(
+            onPressed: () => Navigator.pop(ctx, 'ok'),
+            child: Text(tr('common.ok'))),
+        FilledButton(
+            onPressed: () => Navigator.pop(ctx, 'setup'),
+            child: Text(tr('rec.iosHintSetup'))),
+      ],
+    ),
+  );
+  if (r == 'off') await prefs.setBool('ios_rec_hint_off', true);
+  if (r == 'setup' && context.mounted) {
+    await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const HomeRecorderScreen()));
+  }
 }

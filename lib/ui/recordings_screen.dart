@@ -296,7 +296,7 @@ class _RecTile extends StatelessWidget {
           ? tr('rec.st.recording', [hm(r.stop), formatBytes(r.bytes)])
           : tr('rec.st.downloading', [formatBytes(r.bytes)]),
       RecStatus.done => '${dayTime(r.start)} · ${formatBytes(r.bytes)}',
-      RecStatus.failed => tr('rec.st.failed'),
+      RecStatus.failed => '${dayTime(r.start)} · ${recFailReason(r.error)}',
       RecStatus.cancelled => tr('rec.st.cancelled'),
     };
     return ListTile(
@@ -571,7 +571,8 @@ class _RemoteTile extends StatelessWidget {
       RecStatus.recording =>
         tr('rec.st.recording', [hm(r.stop), formatBytes(r.bytes)]),
       RecStatus.done => '${dayTime(r.start)} · ${formatBytes(r.bytes)}',
-      RecStatus.failed => tr('rec.st.failed'),
+      RecStatus.failed =>
+        '${dayTime(r.start)} · ${recFailReason('${r.j['error'] ?? ''}')}',
       RecStatus.cancelled => tr('rec.st.cancelled'),
     };
     final canPlay = r.bytes > 0 &&

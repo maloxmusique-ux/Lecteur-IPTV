@@ -16,6 +16,18 @@ import 'notifier.dart';
 
 enum RecStatus { scheduled, recording, done, failed, cancelled }
 
+/// Raison lisible d'un enregistrement rate.
+String recFailReason(String err) {
+  final e = err.toLowerCase();
+  if (e == 'missed') return tr('rec.err.missed');
+  if (e == 'interrupted') return tr('rec.err.interrupted');
+  if (e == 'empty') return tr('rec.err.empty');
+  final code = int.tryParse(RegExp(r'http (\d{3})').firstMatch(e)?.group(1) ?? '');
+  if (code == 404) return tr('rec.err.notFound');
+  if (code != null && code >= 400 && code < 600) return tr('rec.err.refused', [code]);
+  return tr('rec.err.network');
+}
+
 /// live = enregistrement d'une chaine en direct entre deux heures,
 /// file = telechargement d'un fichier (rattrapage, film, episode).
 enum RecKind { live, file }
@@ -656,6 +668,7 @@ class RecordingService extends ChangeNotifier {
         }
       }
     }
+    changed |= _mergeAdjacent();
     if (changed) {
       _save();
       notifyListeners();
@@ -684,6 +697,22 @@ class RecordingService extends ChangeNotifier {
             (!r.finished && r.start <= start && r.stop >= stop - 60000)));
     if (exists) return false;
     final now = DateTime.now().millisecondsSinceEpoch;
+    // Episodes colles (ex. dessins animes de 11 min a la suite) : on
+    // allonge l'enregistrement precedent au lieu d'en creer un de plus.
+    if (rule.mode == RecRepeat.everyAiring) {
+      for (final r in items) {
+        if (r.ruleId != rule.id || r.finished || r.kind != RecKind.live) continue;
+        if (r.start <= start && r.stop >= start - _joinGap) {
+          final end = stop + settings.recPadAfter * 60000;
+          if (end > r.stop) r.stop = end;
+          if (save) {
+            _save();
+            notifyListeners();
+          }
+          return true;
+        }
+      }
+    }
     var a = start - settings.recPadBefore * 60000;
     if (a < now) a = now;
     final r = Recording(
@@ -705,6 +734,38 @@ class RecordingService extends ChangeNotifier {
       notifyListeners();
     }
     return true;
+  }
+
+  /// Ecart maximal entre deux diffusions pour les enregistrer d'un bloc.
+  static const _joinGap = 10 * 60000;
+
+  /// Regroupe les diffusions prevues d'une meme serie qui se suivent.
+  bool _mergeAdjacent() {
+    var changed = false;
+    final byRule = <String, List<Recording>>{};
+    for (final r in items) {
+      if (r.ruleId.isEmpty || r.kind != RecKind.live) continue;
+      if (r.status != RecStatus.scheduled && r.status != RecStatus.recording) continue;
+      (byRule[r.ruleId] ??= []).add(r);
+    }
+    final drop = <String>{};
+    for (final list in byRule.values) {
+      list.sort((a, b) => a.start.compareTo(b.start));
+      Recording? cur;
+      for (final r in list) {
+        if (cur != null &&
+            r.status == RecStatus.scheduled &&
+            r.start <= cur.stop + _joinGap) {
+          if (r.stop > cur.stop) cur.stop = r.stop;
+          drop.add(r.id);
+          changed = true;
+        } else {
+          cur = r;
+        }
+      }
+    }
+    if (drop.isNotEmpty) items = items.where((r) => !drop.contains(r.id)).toList();
+    return changed;
   }
 
   /// Diffusion d'une serie trouvee dans le guide d'un autre ecran
@@ -776,8 +837,15 @@ class RecordingService extends ChangeNotifier {
       }
     } else if (r.status == RecStatus.scheduled) {
       r.status = RecStatus.cancelled;
-      // Une diffusion annulee a la main ne revient pas.
-      ruleById(r.ruleId)?.skip.add(r.progStart);
+      // Une diffusion annulee a la main ne revient pas (ni les episodes
+      // regroupes dans le meme bloc).
+      final rule = ruleById(r.ruleId);
+      if (rule != null) {
+        rule.skip.add(r.progStart);
+        for (final p in _guide.forChannel(rule.channel) ?? const <Programme>[]) {
+          if (p.start >= r.start && p.start < r.stop) rule.skip.add(p.start);
+        }
+      }
     }
     _save();
     notifyListeners();
@@ -1008,18 +1076,32 @@ class RecordingService extends ChangeNotifier {
     job.abort = client.close;
     try {
       final headers = _headers(r);
-      Future<http.Response> get(Uri u) async {
-        final res = await client
-            .get(u, headers: headers)
-            .timeout(const Duration(seconds: 30));
+      // Beaucoup de serveurs redirigent la playlist : les segments se
+      // trouvent alors par rapport a l'adresse finale, pas a la premiere.
+      Future<(Uint8List, Uri)> fetch(Uri u) async {
+        final req = http.Request('GET', u)..headers.addAll(headers);
+        final res = await client.send(req).timeout(const Duration(seconds: 30));
         if (res.statusCode < 200 || res.statusCode >= 300) {
+          await res.stream.drain<void>().catchError((_) {});
           throw HttpException('HTTP ${res.statusCode}');
         }
-        return res;
+        final body =
+            await res.stream.toBytes().timeout(const Duration(seconds: 90));
+        // L'adresse finale peut etre relative (en-tete Location relatif).
+        final finalUrl = res is http.BaseResponseWithUrl
+            ? u.resolveUri((res as http.BaseResponseWithUrl).url)
+            : u;
+        return (body, finalUrl);
       }
 
       var playlist = Uri.parse(r.url);
-      var text = decodeBytes((await get(playlist)).bodyBytes);
+      Future<String> getPlaylist(Uri u) async {
+        final (body, at) = await fetch(u);
+        playlist = at;
+        return decodeBytes(body);
+      }
+
+      var text = await getPlaylist(playlist);
       // Playlist maitre : on prend la meilleure qualite.
       if (text.contains('#EXT-X-STREAM-INF')) {
         final lines = const LineSplitter().convert(text);
@@ -1039,8 +1121,7 @@ class RecordingService extends ChangeNotifier {
           }
         }
         if (bestUri == null) throw const FormatException('HLS');
-        playlist = bestUri;
-        text = decodeBytes((await get(playlist)).bodyBytes);
+        text = await getPlaylist(bestUri);
       }
 
       final seen = <String>{};
@@ -1055,7 +1136,7 @@ class RecordingService extends ChangeNotifier {
           if (!initDone && l.startsWith('#EXT-X-MAP:')) {
             final u = RegExp(r'URI="([^"]+)"').firstMatch(l)?.group(1);
             if (u != null) {
-              final bytes = (await get(playlist.resolve(u))).bodyBytes;
+              final (bytes, _) = await fetch(playlist.resolve(u));
               sink.add(bytes);
               r.bytes += bytes.length;
             }
@@ -1070,7 +1151,7 @@ class RecordingService extends ChangeNotifier {
               DateTime.now().millisecondsSinceEpoch >= untilMs) {
             return;
           }
-          final bytes = (await get(playlist.resolve(t))).bodyBytes;
+          final (bytes, _) = await fetch(playlist.resolve(t));
           sink.add(bytes);
           r.bytes += bytes.length;
         }
@@ -1082,7 +1163,7 @@ class RecordingService extends ChangeNotifier {
         await Future<void>.delayed(
             Duration(milliseconds: (target * 500).clamp(1000, 6000)));
         if (job.cancelled) break;
-        text = decodeBytes((await get(playlist)).bodyBytes);
+        text = await getPlaylist(playlist);
       }
     } finally {
       job.abort = null;
